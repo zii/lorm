@@ -2,8 +2,10 @@
 A light weight python ORM without models.
 
 # Examples:
-```
-c = Connection()
+```python
+import lorm
+
+c = orm.Connection()
 c.connect('localhost', 3306, 'dba_user', '123456', 'tbkt')
 
 print c.auth_user.get(id=1)

@@ -1,5 +1,5 @@
 #coding: utf-8
-"A light python ORM"
+"A light weight python ORM"
 
 import umysql
 import copy
