@@ -1,5 +1,5 @@
 # lorm
-A light python ORM without models.
+A light weight python ORM without models.
 
 # Examples:
 ```
