@@ -1,6 +1,8 @@
 # lorm
 A light python ORM without models.
 
+# Examples:
+```
 c = Connection()
 c.connect('localhost', 3306, 'dba_user', '123456', 'tbkt')
 
@@ -26,3 +28,4 @@ print c.auth_user.filter(id=1).rows
 print c.execute_many("insert into word2 (text, phoneticy) values (%s, %s)", (('cat2', 'xxx'), ('cat3', 'xxx'),))
 word = {"text":"cat4", "phoneticy":"dd"}
 c.word2.bulk_create([word]*2)
+```
