@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 
 
-__version__ = '0.1'
+__version__ = '0.1.7'
 
 LOOKUP_SEP = '__'
 
@@ -44,6 +44,12 @@ insert_values = re.compile(restr, re.S | re.I | re.X)
 RE_JOIN_ALIAS = re.compile(r'^(.+?)\..+?\s*=\s*(.+?)\.')
 
 
+def mysql_connect(*args, **kwargs):
+    c = MysqlConnection()
+    c.connect(*args, **kwargs)
+    return c
+
+
 class Struct(dict):
     """
     Dict to object. e.g.:
@@ -74,7 +80,7 @@ class Struct(dict):
         return id(self)
 
 
-class Connection:
+class MysqlConnection:
     #TODO: auto_reconnect
     
     def __init__(self):
@@ -465,16 +471,16 @@ class QuerySet:
 
 
 if __name__ == '__main__':
-    c = Connection()
+
     #c.connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
-    c.connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
-    #print c.is_connected
+    c= mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    print c.is_connected
     
     #c.goods.filter(id=3).delete()
     #print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:4]
     #print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
     #print c.goods.rows(0,2)
-    #print c.goods.get(id=1)
+    print c.goods.get(id=1)
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
     #print c.auth_user[1:3]
