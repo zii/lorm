@@ -1,5 +1,5 @@
 #coding: utf-8
-"A light python ORM"
+"A light weight python ORM"
 
 import umysql
 import copy
@@ -11,7 +11,7 @@ from datetime import datetime
 LOOKUP_SEP = '__'
 
 # Regular expression for executemany.
-# From MySQLdb's code.
+# From MySQLdb's source code.
 restr = r"""
     \s
     values
@@ -38,6 +38,8 @@ restr = r"""
 """
 
 insert_values = re.compile(restr, re.S | re.I | re.X)
+
+RE_JOIN_ALIAS = re.compile(r'^(.+?)\..+?\s*=\s*(.+?)\.')
 
 
 class Struct(dict):
@@ -71,18 +73,19 @@ class Struct(dict):
 
 
 class Connection:
+    #TODO: auto_reconnect
     
     def __init__(self):
         self.conn = None
     
-    def connect(self, host, port, username, password, datebase, autocommit=1):
+    def connect(self, host, port, username, password, datebase, autocommit=1, auto_reconnect=1):
         c = umysql.Connection()
         c.connect(host, port, username, password, datebase, autocommit, 'utf8')
         self.conn = c
     
     @property
     def is_connected(self):
-        return self.conn.is_connected if self.conn else False
+        return self.conn.is_connected() if self.conn else False
     
     def close(self):
         if self.conn:
@@ -159,8 +162,9 @@ class Connection:
 
 
 def escape(s):
+    "From pymysql's source code."
     s = str(s)
-    assert isinstance(value, (bytes, bytearray))
+    assert isinstance(s, (bytes, bytearray))
     s = s.replace('\\', '\\\\')
     s = s.replace('\0', '\\0')
     s = s.replace('\n', '\\n')
@@ -214,7 +218,7 @@ def make_expr(key, v):
     elif op == 'endswith':
         return field + ' like ' + "'%%%%%s'" % escape(v)
     elif op == 'iendswith':
-        return field + ' like ' + "'%%%%%s'" % escape(v)
+        return field + ' ilike ' + "'%%%%%s'" % escape(v)
     elif op == 'contains':
         return field + ' like ' + "'%%%%%s%%%%'" % escape(v)
     elif op == 'icontains':
@@ -223,11 +227,14 @@ def make_expr(key, v):
         return field + ' between ' + "%s and %s" % (literal(v[0]), literal(v[1]))
     return key + '=' + literal(v)
 
+
 class QuerySet:
     
     def __init__(self, conn, table_name):
         self.conn = conn
-        self.table_name = table_name
+        self.tables = [table_name]
+        self.aliases = {}
+        self.join_list = []
         self.select_list = []
         self.cond_list = []
         self.cond_dict = {}
@@ -297,13 +304,24 @@ class QuerySet:
             return 'limit %s' % stop
         return 'limit %s, %s' % (start, stop-start)
     
-    def make_query(self, select_list=None, cond_list=None, cond_dict=None, group_list=None, order_list=None, limits=None):
+    def make_join(self, join_list):
+        if not join_list:
+            return ''
+        return '\n '.join(join_list)
+    
+    def make_query(self, select_list=None, cond_list=None, cond_dict=None, 
+                   join_list=None, group_list=None, order_list=None, limits=None):
         select = self.make_select(select_list or self.select_list)
         cond = self.make_where(cond_list or self.cond_list, cond_dict or self.cond_dict)
         order = self.make_order_by(order_list or self.order_list)
         group = self.make_group_by(group_list or self.group_list)
         limit = self.make_limit(limits or self.limits)
-        sql = "select %s from %s %s %s %s %s" % (select, self.table_name, cond, group, order, limit)
+        join = self.make_join(join_list or self.join_list)
+        table_name = self.tables[0]
+        alias = self.aliases.get(table_name) or ''
+        if alias:
+            table_name += ' ' + alias
+        sql = "select %s from %s %s %s %s %s %s" % (select, table_name, cond, join, group, order, limit)
         print '[debug]', sql
         return sql
     
@@ -311,7 +329,9 @@ class QuerySet:
     def query(self):
         return self.make_query()
     
-    def rows(self):
+    def rows(self, start=None, n=None):
+        if n:
+            self.limits = [start, (start or 0)+n]
         sql = self.query
         return self.conn.fetchall(sql)
     
@@ -359,18 +379,17 @@ class QuerySet:
     def last(self):
         return self[-1]
     
-    def delete(self, *args, **kw):
-        cond = self.make_where(args, kw)
-        sql = "delete from %s %s" % (self.table_name, cond)
+    def delete(self):
+        cond = self.make_where(self.cond_list, self.cond_dict)
+        sql = "delete from %s %s" % (self.tables[0], cond)
         return self.conn.execute(sql)
     
     def create(self, **kw):
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
-        sql = "insert into %s (%s) values (%s)" % (self.table_name, fields, tokens)
-        n, lastid = self.conn.execute(sql, kw.values())
-        if lastid:
-            return self.get(id=lastid)
+        sql = "insert into %s (%s) values (%s)" % (self.tables[0], fields, tokens)
+        _, lastid = self.conn.execute(sql, kw.values())
+        return lastid
     
     def bulk_create(self, obj_list):
         "Returns (affectrows, first_insert_id)"
@@ -379,14 +398,43 @@ class QuerySet:
         kw = obj_list[0]
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
-        sql = "insert into %s (%s) values (%s)" % (self.table_name, fields, tokens)
+        sql = "insert into %s (%s) values (%s)" % (self.tables[0], fields, tokens)
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
     
     def count(self):
         self.select_list = ['count(*)']
-        rows = self.rows
+        rows = self.rows()
         return rows[0][0] if rows else 0
+    
+    def allot_alias(self, names):
+        "allocate alias to tables in sequence"
+        names = [s for s in names if s not in self.aliases.values()]
+        names = reversed(names)
+        for name in names:
+            for t in self.tables:
+                if t not in self.aliases:
+                    self.aliases[t] = name
+                    break
+    
+    def join(self, table_name, cond, op='inner'):
+        "cond: a.id=b.id, 这里a必须是table_name的别名, 也就是说新加入的表的别名必须写在前面."
+        m = RE_JOIN_ALIAS.search(cond)
+        assert m, "Can't recognize table aliases."
+        aliases = m.groups()
+        q = self.clone()
+        q.tables.append(table_name)
+        q.allot_alias(aliases)
+        alias = aliases[0]
+        sql = "%s join %s %s on %s" % (op, table_name, alias, cond)
+        q.join_list.append(sql)
+        return q
+    
+    def ljoin(self, table_name, cond):
+        return self.join(table_name, cond, 'left')
+    
+    def rjoin(self, table_name, cond):
+        return self.join(table_name, cond, 'right')
     
     def __iter__(self):
         rows = self.flush()
@@ -416,8 +464,15 @@ class QuerySet:
 
 if __name__ == '__main__':
     c = Connection()
-    c.connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
-
+    #c.connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
+    c.connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    #print c.is_connected
+    
+    #c.goods.filter(id=3).delete()
+    #print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:4]
+    #print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
+    #print c.goods.rows(0,2)
+    #print c.goods.get(id=1)
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
     #print c.auth_user[1:3]
@@ -430,7 +485,7 @@ if __name__ == '__main__':
     #print c.auth_user.order_by('-id').get(is_active=1)
     #print c.auth_user[-727011]
     #print c.auth_user.filter(is_active=1).order_by('-id').query
-    #print c.word2.delete(id=3)
+    #print c.word2.filter(id=3).delete()
     #sql = "insert into word2 set text=%s" % literal("c'a't")
     #print c.execute(sql)
     #print c.word2.create(text="x'x'yy", phoneticy='a', phoneticm='b')
@@ -449,4 +504,5 @@ if __name__ == '__main__':
     #start = datetime(2016,1,1)
     #end = datetime(2016,5,5)
     #print c.auth_user.filter(last_login__range=[start, end])[:2]
-    print c.auth_user.filter(id__ne=None)[0] # is not null
+    #print c.auth_user.filter(id__ne=None)[0] # is not null
+    
