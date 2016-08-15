@@ -441,3 +441,4 @@ if __name__ == '__main__':
     #end = datetime(2016,5,5)
     #print c.auth_user.filter(last_login__range=[start, end])[:2]
     #print c.auth_user.filter(id__ne=None)[0] # is not null
+    

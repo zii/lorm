@@ -26,8 +26,18 @@ print c.execute(sql)
 print c.word2.create(text="x'x'yy", phoneticy='a', phoneticm='b')
 print list(c.tmp_id.order_by('-id'))
 print len(c.tmp_id)
-print c.auth_user.filter(id=1).rows
+print c.auth_user.filter(id=1).rows()
 print c.execute_many("insert into word2 (text, phoneticy) values (%s, %s)", (('cat2', 'xxx'), ('cat3', 'xxx'),))
 word = {"text":"cat4", "phoneticy":"dd"}
 c.word2.bulk_create([word]*2)
+print c.u_task.group_by('type').select('type', 'count(*) n').rows()
+print c.auth_user.filter(id__gt=1).first()
+print c.auth_user.filter(id__in=(1,378364))[:]
+print c.auth_user.filter(date_joined__in=('2009-08-24 17:26:26', '2012-06-13 11:48:39'))[:]
+print c.auth_user.filter("id=-1 or id>3", is_active=1)[:2]
+print c.auth_user.filter(username__icontains='000js')[0]
+start = datetime(2016,1,1)
+end = datetime(2016,5,5)
+print c.auth_user.filter(last_login__range=[start, end])[:2]
+print c.auth_user.filter(id__ne=None)[0] # is not null
 ```
