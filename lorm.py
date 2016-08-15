@@ -1,12 +1,17 @@
 #coding: utf-8
-"A light weight python ORM"
+"A light python ORM"
 
 import umysql
 import copy
 import re
+import sys
 from datetime import datetime
 
 
+LOOKUP_SEP = '__'
+
+# Regular expression for executemany.
+# From MySQLdb's code.
 restr = r"""
     \s
     values
@@ -157,12 +162,57 @@ def escape(s):
     return s.replace("'", "\\'")
 
 def literal(o):
-    if isinstance(o, (int, long, float)):
+    if o is None:
+        return 'null'
+    elif isinstance(o, (int, long, float)):
         return str(o)
+    elif isinstance(o, (tuple, list)):
+        return '(' + ','.join(literal(s) for s in o) + ')'
     elif isinstance(o, datetime):
-        return "'" + o.strftime('%Y-%m-%d %H:%M') + "'"
+        return "'" + o.strftime('%Y-%m-%d %H:%M:%S') + "'"
     s = str(o)
     return "'" + escape(s) + "'"
+
+def make_expr(key, v):
+    "filter expression"
+    row = key.split(LOOKUP_SEP, 1)
+    field = row[0]
+    op = row[1] if len(row)>1 else ''
+    if not op:
+        if v is None:
+            return field + ' is null'
+        else:
+            return field + '=' + literal(v)
+    if op == 'gt':
+        return field + '>' + literal(v)
+    elif op == 'gte':
+        return field + '>=' + literal(v)
+    elif op == 'lt':
+        return field + '<' + literal(v)
+    elif op == 'lte':
+        return field + '<=' + literal(v)
+    elif op == 'ne':
+        if v is None:
+            return field + ' is not null'
+        else:
+            return field + '!=' + literal(v)
+    elif op == 'in':
+        return field + ' in ' + literal(v)
+    elif op == 'startswith':
+        return field + ' like ' + "'%s%%%%'" % escape(v)
+    elif op == 'istartswith':
+        return field + ' ilike ' + "'%s%%%%'" % escape(v)
+    elif op == 'endswith':
+        return field + ' like ' + "'%%%%%s'" % escape(v)
+    elif op == 'iendswith':
+        return field + ' like ' + "'%%%%%s'" % escape(v)
+    elif op == 'contains':
+        return field + ' like ' + "'%%%%%s%%%%'" % escape(v)
+    elif op == 'icontains':
+        return field + ' ilike ' + "'%%%%%s%%%%'" % escape(v)
+    elif op == 'range':
+        return field + ' between ' + "%s and %s" % (literal(v[0]), literal(v[1]))
+    return key + '=' + literal(v)
 
 class QuerySet:
     
@@ -170,8 +220,10 @@ class QuerySet:
         self.conn = conn
         self.table_name = table_name
         self.select_list = []
+        self.cond_list = []
         self.cond_dict = {}
         self.order_list = []
+        self.group_list = []
         self.limits = []
         self._result = None
     
@@ -180,9 +232,18 @@ class QuerySet:
             return '*'
         return ','.join(fields)
     
-    def make_where(self, kw):
-        # TODO: logic
-        s = ' and '.join('%s=%s'%(k,literal(v)) for k,v in kw.iteritems())
+    def make_where(self, args, kw):
+        # field loopup
+        a = ' and '.join('(%s)'%v for v in args)
+        b = ' and '.join(make_expr(k, v) for k,v in kw.iteritems())
+        if a and b:
+            s = a + ' and ' + b
+        elif a:
+            s = a
+        elif b:
+            s = b
+        else:
+            s = ''
         return "where %s" % s if s else ''
     
     def make_order_by(self, fields):
@@ -212,29 +273,35 @@ class QuerySet:
                 orders.append(s)
             self.order_list = orders
     
+    def make_group_by(self, fields):
+        if not fields:
+            return ''
+        return 'group by ' + ','.join(fields)
+    
     def make_limit(self, limits):
         if not limits:
             return ''
         start, stop = limits
-        if stop is None:
+        if not stop:
             return ''
-        if limits[0] is None:
+        if not start:
             return 'limit %s' % stop
         return 'limit %s, %s' % (start, stop-start)
     
-    def make_query(self, select_list=None, cond_dict=None, order_list=None, limits=None):
+    def make_query(self, select_list=None, cond_list=None, cond_dict=None, group_list=None, order_list=None, limits=None):
         select = self.make_select(select_list or self.select_list)
-        cond = self.make_where(cond_dict or self.cond_dict)
+        cond = self.make_where(cond_list or self.cond_list, cond_dict or self.cond_dict)
         order = self.make_order_by(order_list or self.order_list)
+        group = self.make_group_by(group_list or self.group_list)
         limit = self.make_limit(limits or self.limits)
-        sql = "select %s from %s %s %s %s" % (select, self.table_name, cond, order, limit)
+        sql = "select %s from %s %s %s %s %s" % (select, self.table_name, cond, group, order, limit)
+        print '[debug]', sql
         return sql
     
     @property
     def query(self):
         return self.make_query()
     
-    @property
     def rows(self):
         sql = self.query
         return self.conn.fetchall(sql)
@@ -243,12 +310,16 @@ class QuerySet:
         if self._result:
             return self._result
         sql = self.make_query()
-        #print '[debug]'+sql
         self._result = self.conn.fetchall_dict(sql)
         return self._result
     
     def clone(self):
         return copy.copy(self)
+    
+    def group_by(self, *fields):
+        q = self.clone()
+        q.group_list += fields
+        return q
     
     def order_by(self, *fields):
         q = self.clone()
@@ -260,15 +331,17 @@ class QuerySet:
         q.select_list = fields
         return q
     
-    def get(self, **kw):
+    def get(self, *args, **kw):
         cond_dict = dict(self.cond_dict)
         cond_dict.update(kw)
-        sql = self.make_query(cond_dict=cond_dict, limits=(None,1))
+        cond_list = self.cond_list + list(args)
+        sql = self.make_query(cond_list=cond_list, cond_dict=cond_dict, limits=(None,1))
         return self.conn.fetchone_dict(sql)
     
-    def filter(self, **kw):
+    def filter(self, *args, **kw):
         q = self.clone()
         q.cond_dict.update(kw)
+        q.cond_list += args
         return q
     
     def first(self):
@@ -277,8 +350,8 @@ class QuerySet:
     def last(self):
         return self[-1]
     
-    def delete(self, **kw):
-        cond = self.make_where(kw)
+    def delete(self, *args, **kw):
+        cond = self.make_where(args, kw)
         sql = "delete from %s %s" % (self.table_name, cond)
         return self.conn.execute(sql)
     
@@ -326,6 +399,8 @@ class QuerySet:
         elif isinstance(k, slice):
             start = None if k.start is None else int(k.start)
             stop = None if k.stop is None else int(k.stop)
+            if stop == sys.maxint:
+                stop = None
             q.limits = [start, stop]
             return q.flush()
 
@@ -352,8 +427,17 @@ if __name__ == '__main__':
     #print c.word2.create(text="x'x'yy", phoneticy='a', phoneticm='b')
     #print list(c.tmp_id.order_by('-id'))
     #print len(c.tmp_id)
-    #print c.auth_user.filter(id=1).rows
+    #print c.auth_user.filter(id=1).rows()
     #print c.execute_many("insert into word2 (text, phoneticy) values (%s, %s)", (('cat2', 'xxx'), ('cat3', 'xxx'),))
     #word = {"text":"cat4", "phoneticy":"dd"}
     #c.word2.bulk_create([word]*2)
-    
+    #print c.u_task.group_by('type').select('type', 'count(*) n').rows()
+    #print c.auth_user.filter(id__gt=1).first()
+    #print c.auth_user.filter(id__in=(1,378364))[:]
+    #print c.auth_user.filter(date_joined__in=('2009-08-24 17:26:26', '2012-06-13 11:48:39'))[:]
+    #print c.auth_user.filter("id=-1 or id>3", is_active=1)[:2]
+    #print c.auth_user.filter(username__icontains='000js')[0]
+    #start = datetime(2016,1,1)
+    #end = datetime(2016,5,5)
+    #print c.auth_user.filter(last_login__range=[start, end])[:2]
+    #print c.auth_user.filter(id__ne=None)[0] # is not null
