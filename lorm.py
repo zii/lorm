@@ -159,7 +159,16 @@ class Connection:
 
 
 def escape(s):
-    return s.replace("'", "\\'")
+    s = str(s)
+    assert isinstance(value, (bytes, bytearray))
+    s = s.replace('\\', '\\\\')
+    s = s.replace('\0', '\\0')
+    s = s.replace('\n', '\\n')
+    s = s.replace('\r', '\\r')
+    s = s.replace('\032', '\\Z')
+    s = s.replace("'", "\\'")
+    s = s.replace('"', '\\"')
+    return s
 
 def literal(o):
     if o is None:
@@ -440,4 +449,4 @@ if __name__ == '__main__':
     #start = datetime(2016,1,1)
     #end = datetime(2016,5,5)
     #print c.auth_user.filter(last_login__range=[start, end])[:2]
-    #print c.auth_user.filter(id__ne=None)[0] # is not null
+    print c.auth_user.filter(id__ne=None)[0] # is not null
