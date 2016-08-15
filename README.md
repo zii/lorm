@@ -7,7 +7,13 @@ import lorm
 
 c = orm.Connection()
 c.connect('localhost', 3306, 'dba_user', '123456', 'tbkt')
+print c.is_connected
 
+c.goods.filter(id=3).delete()
+print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:4]
+print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
+print c.goods.rows(0,2)
+print c.goods.get(id=1)
 print c.auth_user.get(id=1)
 print c.auth_user[0]
 print c.auth_user[1:3]
@@ -20,7 +26,7 @@ print c.tmp_id.order_by('?').first()
 print c.auth_user.order_by('-id').get(is_active=1)
 print c.auth_user[-727011]
 print c.auth_user.filter(is_active=1).order_by('-id').query
-print c.word2.delete(id=3)
+print c.word2.filter(id=3).delete()
 sql = "insert into word2 set text=%s" % literal("c'a't")
 print c.execute(sql)
 print c.word2.create(text="x'x'yy", phoneticy='a', phoneticm='b')
