@@ -8,6 +8,8 @@ import sys
 from datetime import datetime
 
 
+__version__ = '0.1'
+
 LOOKUP_SEP = '__'
 
 # Regular expression for executemany.
