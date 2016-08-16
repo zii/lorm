@@ -1,5 +1,6 @@
 #coding: utf-8
 "A light weight python ORM"
+#TODO: unittest
 
 import umysql
 import copy
