@@ -96,6 +96,7 @@ class MysqlConnection:
         self.conn = None
         self.conn_args = {}
         self.auto_reconnect = auto_reconnect
+        self.db_name = ''
     
     def connect(self, host='', port=3306, username='', password='', datebase='', autocommit=1, charset='utf8'):
         c = umysql.Connection()
@@ -133,6 +134,7 @@ class MysqlConnection:
             return False
         
     def query(self, sql, args=()):
+        #TODO: recording last query
         while 1:
             try:
                 return self.conn.query(sql, args)
@@ -209,7 +211,12 @@ class MysqlConnection:
         "return a queryset"
         if table_name.startswith('__'):
             raise AttributeError
-        return QuerySet(self, table_name)
+        return QuerySet(self, table_name, self.db_name)
+
+    def __getitem__(self, db_name):
+        "set new db"
+        self.db_name = db_name
+        return self
 
 
 def escape(s):
@@ -278,11 +285,16 @@ def make_expr(key, v):
         return field + ' between ' + "%s and %s" % (literal(v[0]), literal(v[1]))
     return key + '=' + literal(v)
 
+def make_tablename(db_name, table_name):
+    return "%s.%s" % (db_name, table_name) if db_name else table_name
+
 
 class QuerySet:
     
-    def __init__(self, conn, table_name):
+    def __init__(self, conn, table_name, db_name=''):
         self.conn = conn
+        self.db_name = db_name
+        table_name = make_tablename(db_name, table_name)
         self.tables = [table_name]
         self.aliases = {}
         self.join_list = []
@@ -373,7 +385,7 @@ class QuerySet:
         if alias:
             table_name += ' ' + alias
         sql = "select %s from %s %s %s %s %s %s" % (select, table_name, cond, join, group, order, limit)
-        #print '[debug]', sql
+        print '[debug]', sql
         return sql
     
     @property
@@ -474,6 +486,8 @@ class QuerySet:
         assert m, "Can't recognize table aliases."
         aliases = m.groups()
         q = self.clone()
+        if table_name.find('.') < 0:
+            table_name = make_tablename(self.db_name, table_name)
         q.tables.append(table_name)
         q.allot_alias(aliases)
         alias = aliases[0]
@@ -514,7 +528,6 @@ class QuerySet:
 
 
 if __name__ == '__main__':
-
     #c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     c = mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
     
@@ -525,6 +538,7 @@ if __name__ == '__main__':
     #print c.goods.get(id=1)
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
+    #print c['ziyuan_new'].yy_question.select('id', 'number')[-1]
     #print c.auth_user[1:3]
     #print c.auth_user.filter(username="1'356'5422119js").first()
     #print c.auth_user.order_by('-id').select('id', 'username').last()
