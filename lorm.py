@@ -9,7 +9,7 @@ from datetime import datetime
 import time
 
 
-__version__ = '0.1.8'
+__version__ = '0.1.9'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -97,9 +97,8 @@ class MysqlConnection:
         self.conn_args = {}
         self.auto_reconnect = auto_reconnect
     
-    def connect(self, host='', port=3306, username='', password='', datebase='', autocommit=1):
+    def connect(self, host='', port=3306, username='', password='', datebase='', autocommit=1, charset='utf8'):
         c = umysql.Connection()
-        charset = 'utf8'
         c.connect(host, port, username, password, datebase, autocommit, charset)
         self.conn = c
         self.conn_args = (host, port, username, password, datebase, autocommit, charset)
@@ -128,7 +127,6 @@ class MysqlConnection:
         if not self.conn:
             return False
         try:
-            print 'ping'
             r = self.conn.query("select 1")
             return True
         except:
@@ -375,7 +373,7 @@ class QuerySet:
         if alias:
             table_name += ' ' + alias
         sql = "select %s from %s %s %s %s %s %s" % (select, table_name, cond, join, group, order, limit)
-        print '[debug]', sql
+        #print '[debug]', sql
         return sql
     
     @property
