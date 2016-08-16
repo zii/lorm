@@ -9,7 +9,7 @@ from datetime import datetime
 import time
 
 
-__version__ = '0.1.9'
+__version__ = '0.1.10'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -90,6 +90,35 @@ class Struct(dict):
         return id(self)
 
 
+def escape(s):
+    "From pymysql's source code."
+    s = str(s)
+    assert isinstance(s, (bytes, bytearray))
+    s = s.replace('\\', '\\\\')
+    s = s.replace('\0', '\\0')
+    s = s.replace('\n', '\\n')
+    s = s.replace('\r', '\\r')
+    s = s.replace('\032', '\\Z')
+    s = s.replace("'", "\\'")
+    s = s.replace('"', '\\"')
+    return s
+
+def literal(o):
+    if o is None:
+        return 'null'
+    elif isinstance(o, (int, long, float)):
+        return str(o)
+    elif isinstance(o, (tuple, list)):
+        return '(' + ','.join(literal(s) for s in o) + ')'
+    elif isinstance(o, datetime):
+        return "'" + o.strftime('%Y-%m-%d %H:%M:%S') + "'"
+    s = str(o)
+    return "'" + escape(s) + "'"
+
+
+class SQLError(Exception):
+    pass
+
 class MysqlConnection:
     
     def __init__(self, auto_reconnect=1):
@@ -97,6 +126,7 @@ class MysqlConnection:
         self.conn_args = {}
         self.auto_reconnect = auto_reconnect
         self.db_name = ''
+        self.last_query = ''
     
     def connect(self, host='', port=3306, username='', password='', datebase='', autocommit=1, charset='utf8'):
         c = umysql.Connection()
@@ -134,12 +164,15 @@ class MysqlConnection:
             return False
         
     def query(self, sql, args=()):
-        #TODO: recording last query
+        if args:
+            args = tuple([literal(s) for s in args])
+            sql = sql % args
+        self.last_query = sql
         while 1:
             try:
                 return self.conn.query(sql, args)
-            except umysql.SQLError:
-                raise
+            except umysql.SQLError, e:
+                raise SQLError(e)
             except:
                 if not self.auto_reconnect or self.ping():
                     raise
@@ -219,31 +252,6 @@ class MysqlConnection:
         return self
 
 
-def escape(s):
-    "From pymysql's source code."
-    s = str(s)
-    assert isinstance(s, (bytes, bytearray))
-    s = s.replace('\\', '\\\\')
-    s = s.replace('\0', '\\0')
-    s = s.replace('\n', '\\n')
-    s = s.replace('\r', '\\r')
-    s = s.replace('\032', '\\Z')
-    s = s.replace("'", "\\'")
-    s = s.replace('"', '\\"')
-    return s
-
-def literal(o):
-    if o is None:
-        return 'null'
-    elif isinstance(o, (int, long, float)):
-        return str(o)
-    elif isinstance(o, (tuple, list)):
-        return '(' + ','.join(literal(s) for s in o) + ')'
-    elif isinstance(o, datetime):
-        return "'" + o.strftime('%Y-%m-%d %H:%M:%S') + "'"
-    s = str(o)
-    return "'" + escape(s) + "'"
-
 def make_expr(key, v):
     "filter expression"
     row = key.split(LOOKUP_SEP, 1)
@@ -271,16 +279,10 @@ def make_expr(key, v):
         return field + ' in ' + literal(v)
     elif op == 'startswith':
         return field + ' like ' + "'%s%%%%'" % escape(v)
-    elif op == 'istartswith':
-        return field + ' ilike ' + "'%s%%%%'" % escape(v)
     elif op == 'endswith':
         return field + ' like ' + "'%%%%%s'" % escape(v)
-    elif op == 'iendswith':
-        return field + ' ilike ' + "'%%%%%s'" % escape(v)
     elif op == 'contains':
         return field + ' like ' + "'%%%%%s%%%%'" % escape(v)
-    elif op == 'icontains':
-        return field + ' ilike ' + "'%%%%%s%%%%'" % escape(v)
     elif op == 'range':
         return field + ' between ' + "%s and %s" % (literal(v[0]), literal(v[1]))
     return key + '=' + literal(v)
@@ -304,6 +306,7 @@ class QuerySet:
         self.order_list = []
         self.group_list = []
         self.limits = []
+        self.row_style = 0 # Element type, 0:dict, 1:list
         self._result = None
     
     def make_select(self, fields):
@@ -385,24 +388,21 @@ class QuerySet:
         if alias:
             table_name += ' ' + alias
         sql = "select %s from %s %s %s %s %s %s" % (select, table_name, cond, join, group, order, limit)
-        print '[debug]', sql
+        #print '[debug]', sql
         return sql
     
     @property
     def query(self):
         return self.make_query()
-    
-    def rows(self, start=None, n=None):
-        if n:
-            self.limits = [start, (start or 0)+n]
-        sql = self.query
-        return self.conn.fetchall(sql)
-    
+
     def flush(self):
         if self._result:
             return self._result
         sql = self.make_query()
-        self._result = self.conn.fetchall_dict(sql)
+        if self.row_style == 1:
+            self._result = self.conn.fetchall(sql)
+        else:
+            self._result = self.conn.fetchall_dict(sql)
         return self._result
     
     def clone(self):
@@ -422,13 +422,21 @@ class QuerySet:
         q = self.clone()
         q.select_list = fields
         return q
+
+    def rows(self):
+        q = self.clone()
+        q.row_style = 1
+        return q
     
     def get(self, *args, **kw):
         cond_dict = dict(self.cond_dict)
         cond_dict.update(kw)
         cond_list = self.cond_list + list(args)
         sql = self.make_query(cond_list=cond_list, cond_dict=cond_dict, limits=(None,1))
-        return self.conn.fetchone_dict(sql)
+        if self.row_style == 1:
+            return self.conn.fetchone(sql)
+        else:
+            return self.conn.fetchone_dict(sql)
     
     def filter(self, *args, **kw):
         q = self.clone()
@@ -466,9 +474,9 @@ class QuerySet:
         return self.conn.execute_many(sql, args)
     
     def count(self):
-        self.select_list = ['count(*)']
-        rows = self.rows()
-        return rows[0][0] if rows else 0
+        sql = self.make_query(select_list=['count(*) n'])
+        row = self.conn.fetchone(sql)
+        return rows[0] if row else 0
     
     def allot_alias(self, names):
         "allocate alias to tables in sequence"
@@ -530,11 +538,8 @@ class QuerySet:
 if __name__ == '__main__':
     #c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     c = mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
-    
-    #c.goods.filter(id=3).delete()
-    #print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:4]
-    #print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
-    #print c.goods.rows(0,2)
+
+    #print c.goods.rows()[0]
     #print c.goods.get(id=1)
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
@@ -555,7 +560,7 @@ if __name__ == '__main__':
     #print c.word2.create(text="x'x'yy", phoneticy='a', phoneticm='b')
     #print list(c.tmp_id.order_by('-id'))
     #print len(c.tmp_id)
-    #print c.auth_user.filter(id=1).rows()
+    #print c.auth_user.filter(id=1).rows()[:2]
     #print c.execute_many("insert into word2 (text, phoneticy) values (%s, %s)", (('cat2', 'xxx'), ('cat3', 'xxx'),))
     #word = {"text":"cat4", "phoneticy":"dd"}
     #c.word2.bulk_create([word]*2)
@@ -564,9 +569,13 @@ if __name__ == '__main__':
     #print c.auth_user.filter(id__in=(1,378364))[:]
     #print c.auth_user.filter(date_joined__in=('2009-08-24 17:26:26', '2012-06-13 11:48:39'))[:]
     #print c.auth_user.filter("id=-1 or id>3", is_active=1)[:2]
-    #print c.auth_user.filter(username__icontains='000js')[0]
+    #print c.last_query
+    #print c.auth_user.filter(username__contains='000js')[0]
     #start = datetime(2016,1,1)
     #end = datetime(2016,5,5)
     #print c.auth_user.filter(last_login__range=[start, end])[:2]
     #print c.auth_user.filter(id__ne=None)[0] # is not null
+    #c.goods.filter(id=3).delete()
+    #print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:4]
+    #print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
     
