@@ -1,7 +1,7 @@
 #coding: utf-8
 from setuptools import setup, find_packages
 
-__version__ = "0.1.7"
+__version__ = "0.1.9"
 
 setup(
     name         = "lorm",
@@ -11,6 +11,7 @@ setup(
     author_email = "gamcat@gmail.com",
     url          = "https://github.com/zii/lorm",
     description  = "A light weight python ORM without models.",
+    long_description = open('README.rst').read(),
     license      = "MIT",
     classifiers=[
         'Development Status :: 4 - Beta',
