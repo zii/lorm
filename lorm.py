@@ -1,7 +1,6 @@
 #coding: utf-8
-"A light weight python ORM"
-#TODO: unittest
-
+"A light weight python ORM without models."
+#如果要用在web框架中用lorm, 需要再做成连接池. 因为一个mysql连接同时只能处理一个查询. 注意保证线程安全.
 import umysql
 import copy
 import re
