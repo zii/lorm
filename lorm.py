@@ -10,7 +10,7 @@ from datetime import datetime
 import time
 
 
-__version__ = '0.1.10'
+__version__ = '0.1.11'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -306,6 +306,7 @@ class QuerySet:
         self.cond_dict = {}
         self.order_list = []
         self.group_list = []
+        self.having = ''
         self.limits = []
         self.row_style = 0 # Element type, 0:dict, 1:list
         self._result = None
@@ -359,7 +360,8 @@ class QuerySet:
     def make_group_by(self, fields):
         if not fields:
             return ''
-        return 'group by ' + ','.join(fields)
+        having = ' having %s'%self.having if self.having else ''
+        return 'group by ' + ','.join(fields) + having
     
     def make_limit(self, limits):
         if not limits:
@@ -409,9 +411,10 @@ class QuerySet:
     def clone(self):
         return copy.copy(self)
     
-    def group_by(self, *fields):
+    def group_by(self, *fields, **kw):
         q = self.clone()
         q.group_list += fields
+        q.having = kw.get('having') or ''
         return q
     
     def order_by(self, *fields):
@@ -537,8 +540,8 @@ class QuerySet:
 
 
 if __name__ == '__main__':
-    #c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
-    c = mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
+    #c = mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
 
     #print c.goods.rows()[0]
     #print c.goods.get(id=1)
@@ -565,7 +568,7 @@ if __name__ == '__main__':
     #print c.execute_many("insert into word2 (text, phoneticy) values (%s, %s)", (('cat2', 'xxx'), ('cat3', 'xxx'),))
     #word = {"text":"cat4", "phoneticy":"dd"}
     #c.word2.bulk_create([word]*2)
-    #print c.u_task.group_by('type').select('type', 'count(*) n').rows()
+    #print c.u_task.group_by('type', having='n>100').select('type', 'count(*) n').rows()[:]
     #print c.auth_user.filter(id__gt=1).first()
     #print c.auth_user.filter(id__in=(1,378364))[:]
     #print c.auth_user.filter(date_joined__in=('2009-08-24 17:26:26', '2012-06-13 11:48:39'))[:]
