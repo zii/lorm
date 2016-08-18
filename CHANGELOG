@@ -1,0 +1,7 @@
+lorm 0.1.11 2016-8-18
+
+[NEW]   add QuerySet.exists method
+[NEW]   add QuerySet.__bool__ method
+[NEW]   add QuerySet.__nonzero__ method
+
+[FIX]   fix escape encode issue
