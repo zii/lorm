@@ -9,7 +9,7 @@ from datetime import datetime
 import time
 
 
-__version__ = '0.1.12'
+__version__ = '0.1.13'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -69,8 +69,11 @@ class Struct(dict):
     >>> o.b
     >>> None
     """
-    def __init__(self, dictobj={}):
-        self.update(dictobj)
+    def __init__(self, *e, **f):
+        if e:
+            self.update(e[0])
+        if f:
+            self.update(f)
 
     def __getattr__(self, name):
         # Pickle is trying to get state from your object, and dict doesn't implement it. 
@@ -562,7 +565,7 @@ if __name__ == '__main__':
 
     #print c.goods.rows()[0]
     #print c.goods.get(id=1)
-    #print c.auth_user.get(id=1)
+    print c.auth_user.get(id=1)
     #print c.auth_user[0]
     #print c.auth_user.filter(id=-1).exists()
     #if c.auth_user.filter(id=1):
