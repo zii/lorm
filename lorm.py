@@ -9,7 +9,7 @@ from datetime import datetime
 import time
 
 
-__version__ = '0.1.11'
+__version__ = '0.1.12'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -309,6 +309,7 @@ class QuerySet:
         self.limits = []
         self.row_style = 0 # Element type, 0:dict, 1:list
         self._result = None
+        self._exists = None
     
     def make_select(self, fields):
         if not fields:
@@ -481,6 +482,15 @@ class QuerySet:
         row = self.conn.fetchone(sql)
         return rows[0] if row else 0
     
+    def exists(self):
+        if self._exists is not None:
+            return self._exists
+        sql = self.make_query(select_list=['1'], limits=[None,1])
+        row = self.conn.fetchone(sql)
+        b = bool(row)
+        self._exists = b
+        return b
+    
     def allot_alias(self, names):
         "allocate alias to tables in sequence"
         names = [s for s in names if s not in self.aliases.values()]
@@ -537,6 +547,12 @@ class QuerySet:
             q.limits = [start, stop]
             return q.flush()
 
+    def __bool__(self):
+        return self.exists()
+    
+    def __nonzero__(self):      # Python 2 compatibility
+        return self.exists()
+    
 
 if __name__ == '__main__':
     c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
@@ -546,6 +562,9 @@ if __name__ == '__main__':
     #print c.goods.get(id=1)
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
+    #print c.auth_user.filter(id=-1).exists()
+    if c.auth_user.filter(id=1):
+        print 'exists'
     #print c['ziyuan_new'].yy_question.select('id', 'number')[-1]
     #print c.auth_user[1:3]
     #print c.auth_user.filter(username="1'356'5422119js").first()
