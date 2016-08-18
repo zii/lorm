@@ -90,10 +90,12 @@ class Struct(dict):
         return id(self)
 
 
-def escape(s):
+def escape(s, charset='utf-8'):
     "From pymysql's source code."
-    s = str(s)
-    assert isinstance(s, (bytes, bytearray))
+    if isinstance(s, unicode):
+        s = s.encode(charset)
+    else:
+        s = str(s)
     s = s.replace('\\', '\\\\')
     s = s.replace('\0', '\\0')
     s = s.replace('\n', '\\n')
@@ -563,8 +565,8 @@ if __name__ == '__main__':
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
     #print c.auth_user.filter(id=-1).exists()
-    if c.auth_user.filter(id=1):
-        print 'exists'
+    #if c.auth_user.filter(id=1):
+    #    print 'exists'
     #print c['ziyuan_new'].yy_question.select('id', 'number')[-1]
     #print c.auth_user[1:3]
     #print c.auth_user.filter(username="1'356'5422119js").first()
