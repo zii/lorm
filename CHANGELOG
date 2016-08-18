@@ -1,4 +1,9 @@
-lorm 0.1.11 2016-8-18
+lorm 0.1.13 2016-8-18
+
+[FIX]   Struct arguments
+
+
+lorm 0.1.12 2016-8-18
 
 [NEW]   add QuerySet.exists method
 [NEW]   add QuerySet.__bool__ method
