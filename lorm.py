@@ -7,6 +7,7 @@ import re
 import sys
 from datetime import datetime
 import time
+import threading
 
 
 __version__ = '0.1.13'
@@ -52,12 +53,6 @@ restr = r"""
 insert_values = re.compile(restr, re.S | re.I | re.X)
 
 RE_JOIN_ALIAS = re.compile(r'^(.+?)\..+?\s*=\s*(.+?)\.')
-
-
-def mysql_connect(*args, **kwargs):
-    c = MysqlConnection()
-    c.connect(*args, **kwargs)
-    return c
 
 
 class Struct(dict):
@@ -108,6 +103,7 @@ def escape(s, charset='utf-8'):
     s = s.replace('"', '\\"')
     return s
 
+
 def literal(o):
     if o is None:
         return 'null'
@@ -121,17 +117,39 @@ def literal(o):
     return "'" + escape(s) + "'"
 
 
+def mysql_connect(*args, **kwargs):
+    auto_reconnect = kwargs.get('auto_reconnect', 1)
+    c = MysqlConnection(auto_reconnect)
+    c.connect(*args, **kwargs)
+    return c
+
+
 class SQLError(Exception):
     pass
 
+
+class ProxyConnection:
+    
+    def __init__(self, c, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.c = c
+    
+    def __getattr__(self, table_name):
+        "return a queryset"
+        if table_name.startswith('__'):
+            raise AttributeError
+        return QuerySet(self.c, table_name, *self.args, **self.kwargs)
+    
+    
 class MysqlConnection:
     
     def __init__(self, auto_reconnect=1):
         self.conn = None
         self.conn_args = {}
         self.auto_reconnect = auto_reconnect
-        self.db_name = ''
         self.last_query = ''
+        self.lock = threading.Lock()
     
     def connect(self, host='', port=3306, username='', password='', datebase='', autocommit=1, charset='utf8'):
         c = umysql.Connection()
@@ -163,12 +181,12 @@ class MysqlConnection:
         if not self.conn:
             return False
         try:
-            r = self.conn.query("select 1")
+            self.conn.query("select 1")
             return True
         except:
             return False
         
-    def query(self, sql, args=()):
+    def do_query(self, sql, args=()):
         if args:
             args = tuple([literal(s) for s in args])
             sql = sql % args
@@ -182,7 +200,123 @@ class MysqlConnection:
                 if not self.auto_reconnect or self.ping():
                     raise
                 self.reconnect()
+    
+    @property
+    def locked(self):
+        return self.lock.locked() if self.lock else False
+    
+    def query(self, sql, args=()):
+        "threading safe"
+        self.lock.acquire()
+        try:
+            return self.do_query(sql, args)
+        finally:
+            self.lock.release()
+    
+    def fetchall(self, sql, args=()):
+        r = self.query(sql, args)
+        return r.rows
+    
+    def fetchone(self, sql, args=()):
+        r = self.query(sql, args)
+        return r.rows[0] if r.rows else None
+    
+    def fetchall_dict(self, sql, args=()):
+        r = self.query(sql, args)
+        fields = [f[0] for f in r.fields]
+        rows = [Struct(zip(fields, row)) for row in r.rows]
+        return rows
+    
+    def fetchone_dict(self, sql, args=()):
+        r = self.query(sql, args)
+        if not r.rows:
+            return
+        fields = [f[0] for f in r.fields]
+        return Struct(zip(fields, r.rows[0]))
+    
+    def execute(self, sql, args=()):
+        """
+        Returns affected rows and lastrowid.
+        """
+        return self.query(sql, args)
+    
+    def execute_many(self, sql, args=()):
+        """
+        Execute a multi-row query.
         
+        query -- string, query to execute on server
+
+        args
+
+            Sequence of sequences or mappings, parameters to use with
+            query.
+            
+        Returns long integer rows affected, if any.
+        
+        This method improves performance on multiple-row INSERT and
+        REPLACE. Otherwise it is equivalent to looping over args with
+        execute().
+        """
+        m = insert_values.search(sql)
+        if not m:
+            affected = 0
+            for arg in args:
+                r = self.execute(sql, arg)
+                affected += r[0]
+            return affected, 0
+        p = m.start(1)
+        e = m.end(1)
+        qv = m.group(1)
+        values = []
+        for arg in args:
+            arg = [literal(s) for s in arg]
+            v = qv % tuple(arg)
+            values.append(v)
+        sql = sql[:p] + ','.join(values) + sql[e:]
+        return self.execute(sql)
+    
+#     def callproc(self, procname, *args):
+#         "Execute stored procedure procname with args"
+#         args = ','.join(literal(i) for i in args)
+#         sql = "CALL %s(%s)" % (procname, args)
+#         r = self.query(sql)
+#         return r
+    
+    def __getattr__(self, table_name):
+        "return a queryset"
+        if table_name.startswith('__'):
+            raise AttributeError
+        return QuerySet(self, table_name)
+
+    def __getitem__(self, db_name):
+        "set new db"
+        p = ProxyConnection(self, db_name=db_name)
+        return p
+
+
+class MysqlPool:
+    
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.connections = []
+        self.last_query = ''
+    
+    def connect(self):
+        for c in self.connections:
+            if not c.locked:
+                return c
+        else:
+            c = mysql_connect(*self.args, **self.kwargs)
+            self.connections.append(c)
+            return c
+    
+    def query(self, sql, args=()):
+        c = self.connect()
+        r = c.query(sql, args)
+        self.last_query = c.last_query
+        return r
+    
     def fetchall(self, sql, args=()):
         r = self.query(sql, args)
         return r.rows
@@ -249,12 +383,12 @@ class MysqlConnection:
         "return a queryset"
         if table_name.startswith('__'):
             raise AttributeError
-        return QuerySet(self, table_name, self.db_name)
+        return QuerySet(self, table_name)
 
     def __getitem__(self, db_name):
         "set new db"
-        self.db_name = db_name
-        return self
+        p = ProxyConnection(self, db_name=db_name)
+        return p
 
 
 def make_expr(key, v):
@@ -395,7 +529,7 @@ class QuerySet:
         alias = self.aliases.get(table_name) or ''
         if alias:
             table_name += ' ' + alias
-        sql = "select %s from %s %s %s %s %s %s" % (select, table_name, cond, join, group, order, limit)
+        sql = "select %s from %s %s %s %s %s %s" % (select, table_name, join, cond, group, order, limit)
         #print '[debug]', sql
         return sql
     
@@ -485,7 +619,7 @@ class QuerySet:
     def count(self):
         sql = self.make_query(select_list=['count(*) n'])
         row = self.conn.fetchone(sql)
-        return rows[0] if row else 0
+        return row[0] if row else 0
     
     def exists(self):
         if self._exists is not None:
@@ -560,12 +694,16 @@ class QuerySet:
     
 
 if __name__ == '__main__':
-    c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
-    #c = mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
-
-    #print c.goods.rows()[0]
+    "test"
+    #c = mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
+    c = mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    #c = MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    
+    #print c['crawler'].goods.rows()[0]
+    #print c.last_query
     #print c.goods.get(id=1)
-    print c.auth_user.get(id=1)
+    #print c.goods.count()
+    #print c.auth_user.get(id=1)
     #print c.auth_user[0]
     #print c.auth_user.filter(id=-1).exists()
     #if c.auth_user.filter(id=1):
@@ -605,4 +743,5 @@ if __name__ == '__main__':
     #c.goods.filter(id=3).delete()
     #print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:4]
     #print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
+    
     
