@@ -2,7 +2,9 @@ lorm 0.2.0 2016-8-20
 
 [NEW]   new mysql engine: pymysql
 [NEW]   add callproc
+[NEW]   threading safe
 [NEW]   add MysqlPool
+[NEW]   add test scripts
 
 [FIX]   disorder in make_query
 [FIX]   modify escape and literal to support charset 
