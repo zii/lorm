@@ -1,4 +1,6 @@
-lorm 0.2.2 2016-8-20
+lorm 0.2.3 2016-8-20
+
+[NEW]   add new argument: ignore 
 
 [FIX]   QuerySet.filter(xxx__in=[]) crushed when list is empty
 [FIX]   execute_many returns affected row count.

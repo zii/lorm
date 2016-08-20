@@ -10,7 +10,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -216,10 +216,10 @@ class MysqlConnection:
     
     def execute_many(self, sql, args=()):
         """
-        Execute a multi-row query.
+        Execute a multi-row query. Returns affected rows.
         """
         with self.conn.cursor() as cursor:
-            cursor.executemany(sql, args)
+            return cursor.executemany(sql, args)
     
     def callproc(self, procname, *args):
         "Execute stored procedure procname with args, returns result rows"
@@ -530,21 +530,23 @@ class QuerySet:
         sql = "delete from %s %s" % (self.tables[0], cond)
         return self.conn.execute(sql)
     
-    def create(self, **kw):
+    def create(self, ignore=False, **kw):
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
-        sql = "insert into %s (%s) values (%s)" % (self.tables[0], fields, tokens)
+        ignore_s = ' IGNORE' if ignore else ''
+        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.tables[0], fields, tokens)
         _, lastid = self.conn.execute(sql, kw.values())
         return lastid
     
-    def bulk_create(self, obj_list):
+    def bulk_create(self, obj_list, ignore=False):
         "Returns affectrows"
         if not obj_list:
             return
         kw = obj_list[0]
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
-        sql = "insert into %s (%s) values (%s)" % (self.tables[0], fields, tokens)
+        ignore_s = ' IGNORE' if ignore else ''
+        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.tables[0], fields, tokens)
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
     

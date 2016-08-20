@@ -11,8 +11,10 @@ if __name__ == '__main__':
     #print c.goods.get(id=1)
     #import datetime
     #print c.goods.filter(add_time=datetime.datetime(2016, 8, 12, 10, 48, 29)).first()
-    print c.goods.filter(id__in=[1])[:]
+    #print c.goods.filter(id__in=[1])[:]
     #print c.goods.count()
+    #print c.pets.create(name='dog2')
+    print c.pets.bulk_create([{'name':'dog4'}], ignore=1)
     #print c.fetchall("select * from goods2 limit 2")
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
