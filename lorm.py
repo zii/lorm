@@ -373,6 +373,8 @@ class QuerySet:
             else:
                 return field + '!=' + self.literal(v)
         elif op == 'in':
+            if not v:
+                return ''
             return field + ' in ' + self.literal(v)
         elif op == 'startswith':
             return field + ' like ' + "'%s%%%%'" % self.escape(v)
@@ -387,7 +389,9 @@ class QuerySet:
     def make_where(self, args, kw):
         # field loopup
         a = ' and '.join('(%s)'%v for v in args)
-        b = ' and '.join(self.make_expr(k, v) for k,v in kw.iteritems())
+        b_list = [self.make_expr(k, v) for k,v in kw.iteritems()]
+        b_list = [s for s in b_list if s]
+        b = ' and '.join(b_list)
         if a and b:
             s = a + ' and ' + b
         elif a:
