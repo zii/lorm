@@ -534,7 +534,7 @@ class QuerySet:
         return lastid
     
     def bulk_create(self, obj_list):
-        "Returns (affectrows, first_insert_id)"
+        "Returns affectrows"
         if not obj_list:
             return
         kw = obj_list[0]
