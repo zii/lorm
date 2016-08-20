@@ -1,3 +1,8 @@
+lorm 0.2.1 2016-8-20
+
+[FIX]   default: autoreconnect=False
+
+
 lorm 0.2.0 2016-8-20
 
 [NEW]   new mysql engine: pymysql

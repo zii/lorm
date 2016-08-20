@@ -10,7 +10,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -143,7 +143,7 @@ class MysqlConnection:
         self.conn = None
     
     def connect(self, host='', port=3306, username='', password='', database='', 
-                autocommit=True, charset='utf8', autoreconnect=True):
+                autocommit=True, charset='utf8', autoreconnect=False):
         c = PyMysqlConnection(
                 host=host, 
                 port=port,
