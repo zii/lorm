@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 import lorm
 
-__version__ = lorm.__version__
+__version__ = '0.2.5b'
 
 setup(
     name         = "lorm",
