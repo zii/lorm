@@ -247,7 +247,7 @@ class MysqlPool:
         self.kwargs = kwargs
         self.connections = []
         self.last_conn = None
-        self._lock = threading.Lock()
+        self._lock = threading.Lock() #TODO: use semaphore
     
     def do_connect(self):
         for c in self.connections:
