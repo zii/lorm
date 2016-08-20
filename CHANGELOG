@@ -1,5 +1,10 @@
 lorm 0.2.3 2016-8-20
 
+[NEW]   MysqlPool add max_connections
+
+
+lorm 0.2.3 2016-8-20
+
 [NEW]   add new argument: ignore 
 
 [FIX]   QuerySet.filter(xxx__in=[]) crushed when list is empty

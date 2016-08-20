@@ -4,10 +4,11 @@ import gevent
 import lorm
 import time
 
-db = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+db = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', max_connections=4)
 #db = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
 def foo():
     db.execute("select sleep(2)")
+    print len(db)
 
 g_list = []
 for i in xrange(5):

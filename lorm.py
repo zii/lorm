@@ -5,12 +5,13 @@ import re
 import sys
 import time
 import threading
+import random
 
 import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.3'
+__version__ = '0.2.4'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -71,8 +72,7 @@ class SQLError(Exception):
 class PyMysqlConnection(BaseConnection):
     
     def __init__(self, *args, **kwargs):
-        self.auto_reconnect = kwargs.get('auto_reconnect', False)
-        kwargs.pop('auto_reconnect', None)
+        self.auto_reconnect = kwargs.pop('auto_reconnect', False)
         self.lock = threading.Lock()
         self.last_query = ''
         super(PyMysqlConnection, self).__init__(*args, **kwargs)
@@ -242,23 +242,29 @@ class MysqlConnection:
 class MysqlPool:
     
     def __init__(self, *args, **kwargs):
+        self.max_connections = kwargs.pop('max_connections', 0)
         self.args = args
         self.kwargs = kwargs
         self.connections = []
         self.last_conn = None
+        self._lock = threading.Lock()
     
-    def connect(self):
-        r = None
+    def do_connect(self):
         for c in self.connections:
             if not c.locked:
-                r = c
-                break
-        else:
-            c = mysql_connect(*self.args, **self.kwargs)
-            self.connections.append(c)
-            r = c
-        self.last_conn = r
-        return r
+                return c
+        if len(self.connections) >= self.max_connections > 0:
+            return random.choice(self.connections)
+        c = mysql_connect(*self.args, **self.kwargs)
+        self.connections.append(c)
+        return c
+    
+    def connect(self):
+        self._lock.acquire()
+        try:
+            return self.do_connect()
+        finally:
+            self._lock.release()
     
     def size(self):
         return len(self.connections)
