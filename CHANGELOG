@@ -1,6 +1,16 @@
+lorm 0.2.0 2016-8-20
+
+[NEW]   new mysql engine: pymysql
+[NEW]   add callproc
+[NEW]   add MysqlPool
+
+[FIX]   disorder in make_query
+[FIX]   modify escape and literal to support charset 
+
+
 lorm 0.1.13 2016-8-18
 
-[FIX]   Struct arguments
+[FIX]   Struct arguments is more generic.
 
 
 lorm 0.1.12 2016-8-18

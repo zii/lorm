@@ -17,3 +17,5 @@ for i in xrange(5):
 st = time.time()
 gevent.joinall(g_list)
 print 'took', time.time() - st
+
+print len(db)
