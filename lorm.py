@@ -10,7 +10,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 __all__ = [
     'mysql_connect',
     'Struct',
