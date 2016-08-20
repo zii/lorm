@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.4'
+__version__ = '0.2.5'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -262,7 +262,9 @@ class MysqlPool:
     def connect(self):
         self._lock.acquire()
         try:
-            return self.do_connect()
+            c = self.do_connect()
+            self.last_conn = c
+            return c
         finally:
             self._lock.release()
     
