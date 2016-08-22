@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.7'
+__version__ = '0.2.8'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -172,7 +172,7 @@ class MysqlConnection:
     
     @property
     def charset(self):
-        return self.conn.charset if self.conn else 'utf8'
+        return self.conn.charset
     
     def literal(self, value):
         return self.conn.literal(value)
@@ -227,6 +227,25 @@ class MysqlConnection:
             cursor.callproc(procname, args)
             return cursor.fetchall()
     
+    def begin(self):
+        """Begin transaction."""
+        self.conn.begin()
+    
+    def commit(self):
+        """Commit changes to stable storage"""
+        self.conn.commit()
+    
+    def rollback(self):
+        """Roll back the current transaction"""
+        self.conn.rollback()
+    
+    def ping(self):
+        """Check if the server is alive"""
+        try:
+            return self.conn.ping(False)
+        except:
+            return False
+    
     def __getattr__(self, table_name):
         "return a queryset"
         if table_name.startswith('__'):
@@ -247,7 +266,7 @@ class MysqlPool:
         self.kwargs = kwargs
         self.connections = []
         self.last_conn = None
-        self._lock = threading.Lock()
+        self._lock = threading.Lock() # connecting lock
     
     def do_connect(self):
         for c in self.connections:
@@ -271,54 +290,8 @@ class MysqlPool:
     def size(self):
         return len(self.connections)
     
-    @property
-    def last_query(self):
-        return self.last_conn.last_query if self.last_conn else ''
-    
-    def fetchall(self, sql, args=()):
-        c = self.connect()
-        return c.fetchall(sql, args)
-    
-    def fetchone(self, sql, args=()):
-        c = self.connect()
-        return c.fetchone(sql, args)
-    
-    def fetchall_dict(self, sql, args=()):
-        c = self.connect()
-        return c.fetchall_dict(sql, args)
-    
-    def fetchone_dict(self, sql, args=()):
-        c = self.connect()
-        return c.fetchone_dict(sql, args)
-    
-    def execute(self, sql, args=()):
-        c = self.connect()
-        return c.execute(sql, args)
-    
-    def execute_many(self, sql, args=()):
-        c = self.connect()
-        return c.execute_many(sql, args)
-    
-    def callproc(self, procname, *args):
-        "Execute stored procedure procname with args, returns cursor"
-        c = self.connect()
-        return c.callproc(procname, *args)
-    
     def __len__(self):
         return len(self.connections)
-    
-    def __getattr__(self, table_name):
-        "return a queryset"
-        if table_name.startswith('__'):
-            raise AttributeError
-        c = self.connect()
-        return QuerySet(c, table_name)
-
-    def __getitem__(self, db_name):
-        "set new db"
-        c = self.connect()
-        p = ProxyConnection(c, db_name=db_name)
-        return p
 
 
 def make_tablename(db_name, table_name):

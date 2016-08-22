@@ -1,14 +1,31 @@
 #coding: utf-8
 import lorm
 
+def test_pool():
+    pool = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
+    c = pool.connect()
+    print c.pets.get(id=1)
+    print c.last_query
+
+def test_reconnect():
+    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', autoreconnect=1)
+    print c.fetchall("select sleep(10)")
+    
+def test_connect():
+    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    print c.goods.get(id=1)
+    
+    
 if __name__ == '__main__':
     "test"
+    test_pool()
+    
     #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
-    c = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
+    #test_pool()
     
     #print c.pets.filter(id=11).update(name='xxx')
-    print c.pets.filter(id=15).delete('pets')
+    #print c.pets.filter(id=15).delete('pets')
     #print c['crawler'].goods.rows()[0]
     #print c.goods.get(id=1)
     #import datetime
@@ -58,4 +75,4 @@ if __name__ == '__main__':
     #c.goods.filter(id=3).delete()
     #print c.goods.join('search_keywords', "s.keyword=g.keyword").select('g.title', 's.max_price')[2:5]
     #print c.goods.rjoin('goods', "g2.keyword=g1.keyword").select('g1.id', 'g2.id')[:2]
-    print c.last_query
+    #print c.last_query
