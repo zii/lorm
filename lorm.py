@@ -247,7 +247,7 @@ class MysqlPool:
         self.kwargs = kwargs
         self.connections = []
         self.last_conn = None
-        self._lock = threading.Lock() #TODO: use semaphore
+        self._lock = threading.Lock()
     
     def do_connect(self):
         for c in self.connections:
@@ -472,6 +472,9 @@ class QuerySet:
             table_name += ' ' + alias
         sql = "select %s from %s %s %s %s %s %s" % (select, table_name, join, cond, group, order, limit)
         return sql
+        
+    def make_update_fields(self, kw):
+        return ','.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
     
     @property
     def query(self):
@@ -532,11 +535,6 @@ class QuerySet:
     
     def last(self):
         return self[-1]
-    
-    def delete(self):
-        cond = self.make_where(self.cond_list, self.cond_dict)
-        sql = "delete from %s %s" % (self.tables[0], cond)
-        return self.conn.execute(sql)
     
     def create(self, ignore=False, **kw):
         tokens = ','.join(['%s']*len(kw))
@@ -602,6 +600,27 @@ class QuerySet:
     
     def rjoin(self, table_name, cond):
         return self.join(table_name, cond, 'right')
+
+    def update(self, **kw):
+        "return affected rows"
+        if not kw:
+            return 0
+        cond = self.make_where(self.cond_list, self.cond_dict)
+        update_fields = self.make_update_fields(kw)
+        sql = "update %s set %s %s" % (self.tables[0], update_fields, cond)
+        return self.conn.execute(sql)
+    
+    def delete(self, *names):
+        cond = self.make_where(self.cond_list, self.cond_dict)
+        join = self.make_join(self.join_list)
+        limit = self.make_limit(self.limits)
+        table_name = self.tables[0]
+        alias = self.aliases.get(table_name) or ''
+        if alias:
+            table_name += ' ' + alias
+        d_names = ','.join(names)
+        sql = "delete %s from %s %s %s %s" % (d_names, table_name, join, cond, limit)
+        return self.conn.execute(sql)
     
     def __iter__(self):
         rows = self.flush()

@@ -7,6 +7,8 @@ if __name__ == '__main__':
     #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
     c = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
     
+    #print c.pets.filter(id=11).update(name='xxx')
+    print c.pets.filter(id=15).delete('pets')
     #print c['crawler'].goods.rows()[0]
     #print c.goods.get(id=1)
     #import datetime
@@ -14,7 +16,7 @@ if __name__ == '__main__':
     #print c.goods.filter(id__in=[1])[:]
     #print c.goods.count()
     #print c.pets.create(name='dog2')
-    print c.pets.bulk_create([{'name':'dog4'}], ignore=1)
+    #print c.pets.bulk_create([{'name':'dog4'}], ignore=1)
     #print c.fetchall("select * from goods2 limit 2")
     #print c.auth_user.get(id=1)
     #print c.auth_user[0]
