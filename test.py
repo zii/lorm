@@ -2,9 +2,9 @@
 import lorm
 
 def test_pool():
-    pool = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
+    pool = lorm.mysql_pool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
     c = pool.connect()
-    print c.pets.get(id=1)
+    print pool.c.pets.get(id=1)
     print c.last_query
 
 def test_reconnect():
@@ -14,7 +14,7 @@ def test_reconnect():
 def test_connect():
     c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
     print c.goods.get(id=1)
-    
+    print c.conn.__class__._last_query
     
 if __name__ == '__main__':
     "test"

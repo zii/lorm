@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.8'
+__version__ = '0.2.9'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -65,11 +65,18 @@ def mysql_connect(*args, **kwargs):
     return c
 
 
+def mysql_pool(*args, **kwargs):
+    p = MysqlPool(*args, **kwargs)
+    return p
+
+
 class SQLError(Exception):
     pass
 
 
 class PyMysqlConnection(BaseConnection):
+    
+    _last_query = ''
     
     def __init__(self, *args, **kwargs):
         self.auto_reconnect = kwargs.pop('auto_reconnect', False)
@@ -102,7 +109,7 @@ class PyMysqlConnection(BaseConnection):
     def do_query(self, sql, unbuffered=False):
         while 1:
             try:
-                self.last_query = sql
+                PyMysqlConnection._last_query = self.last_query = sql
                 return super(PyMysqlConnection, self).query(sql, unbuffered)
             except pymysql.err.ProgrammingError, e:
                 raise SQLError(e)
@@ -265,7 +272,6 @@ class MysqlPool:
         self.args = args
         self.kwargs = kwargs
         self.connections = []
-        self.last_conn = None
         self._lock = threading.Lock() # connecting lock
     
     def do_connect(self):
@@ -281,11 +287,15 @@ class MysqlPool:
     def connect(self):
         self._lock.acquire()
         try:
-            c = self.do_connect()
-            self.last_conn = c
-            return c
+            return self.do_connect()
         finally:
             self._lock.release()
+    
+    c = property(connect)
+    
+    @property
+    def last_query(self):
+        return PyMysqlConnection._last_query
     
     def size(self):
         return len(self.connections)
