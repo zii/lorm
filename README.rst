@@ -28,9 +28,9 @@ Example
 .. code:: python
 
     >>> c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
-    >>> id = c.pets.create(name='cat')
+    >>> c.pets.create(name='cat')
     1
-    >>> c.pets.get(id=id)
+    >>> c.pets.get(id=1)
     {u'id': 2, u'name': u'cat'}
     >>> c.last_query
     select * from pets where id=1 limit 1
