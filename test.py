@@ -17,7 +17,7 @@ def test_commit():
     c.pets.filter(id=1).update(name='cat')
     c.commit()
     try:
-        c.pets.filter(id=1).update(name='ff你好')
+        c.pets.filter(id=1).update(name='大象')
     finally:
         print c.last_query
     c2 = c.dup()
