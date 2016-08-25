@@ -3,30 +3,49 @@ import lorm
 import datetime
 
 def test_pool():
-    pool = lorm.mysql_pool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
+    pool = lorm.mysql_pool('localhost', 3306, 'root', 'root', 'test', charset='utf8', autocommit=True, autoreconnect=1)
     c = pool.connect()
-    print pool.c.pets.get(id=1)
+    print c.pets.get(id=1)
     print c.last_query
 
 def test_reconnect():
-    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', autoreconnect=1)
+    c = lorm.mysql_connect('192.168.0.111', 3306, 'root', 'root', 'test', autoreconnect=1)
     print c.fetchall("select sleep(10)")
     
-def test_connect():
-    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
-    print c.goods.get(id=1)
-    print c.conn.__class__._last_query
+def test_commit():
+    c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test', autocommit=0)
+    c.pets.filter(id=1).update(name='cat')
+    c.commit()
+    try:
+        c.pets.filter(id=1).update(name='ff你好')
+    finally:
+        print c.last_query
+    c2 = c.dup()
+    c2.autocommit(1)
+    print c2.pets.get(id=1)
+    c.commit()
+    print c2.pets.get(id=1)
 
+def test_rollback():
+    c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test', autocommit=1)
+    c.begin()
+    c.pets.create(name='bird')
+    c.rollback()
+    c.commit()
+    
 def test_example():
     c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
     id = c.pets.create(name='cat')
     print id
     print c.pets.get(id=id)
-    print c.fetchone("select 1")
+    print c.last_query
 
 if __name__ == '__main__':
     "test"
-    test_example()
+    #test_example()
+    #test_commit()
+    #test_reconnect()
+    test_rollback()
     
     #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')

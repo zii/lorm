@@ -4,11 +4,10 @@ import gevent
 import lorm
 import time
 
-db = lorm.MysqlPool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', max_connections=4)
-#db = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+pool = lorm.mysql_pool('localhost', 3306, 'root', 'root', 'test', max_connections=5)
 def foo():
-    db.execute("select sleep(2)")
-    print len(db)
+    pool.c.execute("select sleep(2)")
+    print len(pool)
 
 g_list = []
 for i in xrange(5):
@@ -18,5 +17,3 @@ for i in xrange(5):
 st = time.time()
 gevent.joinall(g_list)
 print 'took', time.time() - st
-
-print len(db)

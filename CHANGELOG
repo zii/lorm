@@ -1,3 +1,13 @@
+lorm 0.2.11 2016-8-25
+
+[NEW]   MysqlConnection.dup
+[NEW]   MysqlConnection.set_charset, autocommit, get_autocommit
+[NEW]   MysqlPool.full
+
+[FIX]   QuerySet.update, delete return value
+[FIX]   improve README.rst and test.py
+
+
 lorm 0.2.10 2016-8-25
 
 [FIX]   improve README.rst

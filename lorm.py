@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.10'
+__version__ = '0.2.11'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -60,6 +60,11 @@ class Struct(dict):
 
 
 def mysql_connect(*args, **kwargs):
+    """
+    Params:
+    host='', port=3306, username='', password='', database='', 
+    autocommit=True, charset='utf8', autoreconnect=False
+    """
     c = MysqlConnection()
     c.connect(*args, **kwargs)
     return c
@@ -85,16 +90,22 @@ class PyMysqlConnection(BaseConnection):
         super(PyMysqlConnection, self).__init__(*args, **kwargs)
         
     def reconnect(self):
+        if self._sock is not None:
+            self.close()
+        try:
+            self.connect()
+        except:
+            return False
+        return True
+    
+    def reconnect_until_ok(self):
         delay = 1
         while 1:
             #print 'reconnecting..'
-            if self._sock is not None:
-                self.close()
-            try:
-                self.connect()
+            ok = self.reconnect()
+            if ok:
+                #print 'reconnected.'
                 break
-            except:
-                pass
             time.sleep(delay)
             if delay < 4:
                 delay *= 2
@@ -114,9 +125,14 @@ class PyMysqlConnection(BaseConnection):
             except pymysql.err.ProgrammingError, e:
                 raise SQLError(e)
             except:
-                if not self.auto_reconnect or self.safe_ping():
+                # closed by hand
+                if self._sock is None:
                     raise
-                self.reconnect()
+                if not self.auto_reconnect:
+                    raise
+                if self.safe_ping():
+                    raise
+                self.reconnect_until_ok()
     
     def query(self, sql, unbuffered=False):
         self.lock.acquire()
@@ -148,19 +164,23 @@ class MysqlConnection:
     
     def __init__(self):
         self.conn = None
+        self.conn_args = None
     
     def connect(self, host='', port=3306, username='', password='', database='', 
                 autocommit=True, charset='utf8', autoreconnect=False):
+        args = locals()
+        args.pop('self')
+        self.conn_args = args
         c = PyMysqlConnection(
-                host=host, 
-                port=port,
-                user=username, 
-                password=password, 
-                database=database,
-                charset=charset,
-                autocommit=autocommit,
-                auto_reconnect=autoreconnect,
-                )
+            host=host, 
+            port=port,
+            user=username, 
+            password=password, 
+            database=database,
+            charset=charset,
+            autocommit=autocommit,
+            auto_reconnect=autoreconnect,
+        )
         self.conn = c
         return c
     
@@ -169,6 +189,13 @@ class MysqlConnection:
             self.conn.close()
             self.conn = None
     
+    def dup(self):
+        """Create a new connection with same arguments."""
+        o = MysqlConnection()
+        assert self.conn_args, 'Connection was not established.'
+        o.connect(**self.conn_args)
+        return o
+        
     @property
     def locked(self):
         return self.conn.locked if self.conn else False
@@ -176,6 +203,9 @@ class MysqlConnection:
     @property
     def last_query(self):
         return self.conn.last_query if self.conn else ''
+    
+    def set_charset(self, charset):
+        self.conn.set_charset(charset)
     
     @property
     def charset(self):
@@ -229,7 +259,7 @@ class MysqlConnection:
             return cursor.executemany(sql, args)
     
     def callproc(self, procname, *args):
-        "Execute stored procedure procname with args, returns result rows"
+        """Execute stored procedure procname with args, returns result rows"""
         with self.conn.cursor() as cursor:
             cursor.callproc(procname, args)
             return cursor.fetchall()
@@ -241,6 +271,13 @@ class MysqlConnection:
     def commit(self):
         """Commit changes to stable storage"""
         self.conn.commit()
+    
+    def autocommit(self, b):
+        self.conn_args['autocommit'] = b
+        self.conn.autocommit(b)
+    
+    def get_autocommit(self):
+        return self.conn.get_autocommit()
     
     def rollback(self):
         """Roll back the current transaction"""
@@ -254,13 +291,13 @@ class MysqlConnection:
             return False
     
     def __getattr__(self, table_name):
-        "return a queryset"
+        """Returns a queryset"""
         if table_name.startswith('__'):
             raise AttributeError
         return QuerySet(self, table_name)
 
     def __getitem__(self, db_name):
-        "set new db"
+        """Use other db"""
         p = ProxyConnection(self, db_name=db_name)
         return p
 
@@ -278,7 +315,7 @@ class MysqlPool:
         for c in self.connections:
             if not c.locked:
                 return c
-        if len(self.connections) >= self.max_connections > 0:
+        if self.full:
             return random.choice(self.connections)
         c = mysql_connect(*self.args, **self.kwargs)
         self.connections.append(c)
@@ -299,6 +336,10 @@ class MysqlPool:
     
     def size(self):
         return len(self.connections)
+    
+    @property
+    def full(self):
+        return len(self.connections) >= self.max_connections > 0
     
     def __len__(self):
         return len(self.connections)
@@ -591,9 +632,11 @@ class QuerySet:
         cond = self.make_where(self.cond_list, self.cond_dict)
         update_fields = self.make_update_fields(kw)
         sql = "update %s set %s %s" % (self.tables[0], update_fields, cond)
-        return self.conn.execute(sql)
+        n, _ = self.conn.execute(sql)
+        return n
     
     def delete(self, *names):
+        "return affected rows"
         cond = self.make_where(self.cond_list, self.cond_dict)
         join = self.make_join(self.join_list)
         limit = self.make_limit(self.limits)
@@ -603,7 +646,8 @@ class QuerySet:
             table_name += ' ' + alias
         d_names = ','.join(names)
         sql = "delete %s from %s %s %s %s" % (d_names, table_name, join, cond, limit)
-        return self.conn.execute(sql)
+        n, _ = self.conn.execute(sql)
+        return n
     
     def __iter__(self):
         rows = self.flush()
