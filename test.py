@@ -15,10 +15,14 @@ def test_connect():
     c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
     print c.goods.get(id=1)
     print c.conn.__class__._last_query
-    
+
+def test_example():
+    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'mysql')
+    print c.user.get(host='localhost')
+
 if __name__ == '__main__':
     "test"
-    test_pool()
+    test_example()
     
     #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
