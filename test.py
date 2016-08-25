@@ -1,5 +1,6 @@
 #coding: utf-8
 import lorm
+import datetime
 
 def test_pool():
     pool = lorm.mysql_pool('121.40.85.144', 3306, 'root', 'aa131415', 'crawler', charset='utf8', autocommit=True, autoreconnect=1)
@@ -17,8 +18,12 @@ def test_connect():
     print c.conn.__class__._last_query
 
 def test_example():
-    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'mysql')
-    print c.user.get(host='localhost')
+    c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
+    print c
+    id = c.pets.create(name='cat')
+    print id
+    print c.pets.get(id=id)
+    print c.fetchone("select 1")
 
 if __name__ == '__main__':
     "test"

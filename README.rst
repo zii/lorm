@@ -15,11 +15,20 @@ The last stable release is available on PyPI and can be installed with ``pip``::
 
 Example
 -------
-.. code-block:: python
+.. code:: sql
+
+    CREATE TABLE `pets` (
+      `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+      `name` varchar(20) NOT NULL DEFAULT '',
+      `add_time` datetime DEFAULT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+.. code:: python
 
     import lorm
 
-    c = lorm.mysql_connect('localhost', 3306, 'root', '******', 'mysql')
+    c = lorm.mysql_connect('localhost', 3306, 'root', '******', 'test')
 
     print c.user.get(host='localhost')
 
@@ -31,6 +40,7 @@ Features
 - Auto reconnect
 - Connection pool
 - Django style lookup expressions
+- Threading safe
 
 Requirements
 ------------
