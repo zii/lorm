@@ -39,13 +39,14 @@ def test_example():
     print id
     print c.pets.get(id=id)
     print c.last_query
+    print c.fetchall("select * from pets")
 
 if __name__ == '__main__':
     "test"
-    #test_example()
+    test_example()
     #test_commit()
     #test_reconnect()
-    test_rollback()
+    #test_rollback()
     
     #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
