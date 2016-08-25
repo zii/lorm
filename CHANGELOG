@@ -1,3 +1,9 @@
+lorm 0.2.10 2016-8-25
+
+[FIX]   improve README.rst
+[FIX]   delete README.md
+
+
 lorm 0.2.9 2016-8-22
 
 [NEW]   MysqlPool: last_query
