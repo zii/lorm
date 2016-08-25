@@ -26,13 +26,13 @@ Example
 
 .. code:: python
 
-    import lorm
+    >>> c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
+    >>> id = c.pets.create(name='cat')
+    1
+    >>> c.pets.get(id=id)
+    {u'id': 2, u'name': u'cat'}
 
-    c = lorm.mysql_connect('localhost', 3306, 'root', '******', 'test')
-
-    print c.user.get(host='localhost')
-
-For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_.
+For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_ and source code.
 
 Features
 --------
@@ -41,6 +41,7 @@ Features
 - Connection pool
 - Django style lookup expressions
 - Threading safe
+
 
 Requirements
 ------------

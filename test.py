@@ -19,7 +19,6 @@ def test_connect():
 
 def test_example():
     c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
-    print c
     id = c.pets.create(name='cat')
     print id
     print c.pets.get(id=id)
