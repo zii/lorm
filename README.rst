@@ -35,7 +35,7 @@ Example
     >>> c.last_query
     select * from pets where id=1 limit 1
 
-For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_ and source code.
+For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_.
 
 Features
 --------
