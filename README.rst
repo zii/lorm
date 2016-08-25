@@ -25,4 +25,10 @@ Example
 
 For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_.
 
+Features
+--------
+- No Model, use tablename as model name.
+- Auto reconnect
+- Connection pool
+- Django style Lookup expressions
 
