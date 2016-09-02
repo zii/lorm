@@ -4,7 +4,7 @@ import dis
 
 globals().update(opcode.opmap)
 
-gi = (i for i,k in [] if 1 and 2*(i.id+1)<1)
+gi = (i for i,k in [] if 1 and 2.2/3/(i.id+1)<1)
 print dir(gi)
 print dir(gi.gi_code)
 print gi.gi_frame.f_locals['.0']
@@ -17,9 +17,11 @@ print 'co_names:', gi.gi_code.co_names
 def get_binary_priority(op):
     if op in (BINARY_POWER):
         return 1
-    elif op in (BINARY_MULTIPLY, BINARY_DIVIDE, BINARY_MODULO):
+    elif op in (BINARY_MULTIPLY, BINARY_DIVIDE, BINARY_MODULO, BINARY_FLOOR_DIVIDE, BINARY_TRUE_DIVIDE):
         return 2
-     
+    elif op in (BINARY_ADD, BINARY_SUBTRACT)
+    elif op in (UNARY_POSITIVE, UNARY_NEGATIVE, UNARY_NOT, ):
+        return 3
 
 class Expression:
     def __init__(self, s, op):
