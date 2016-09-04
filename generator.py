@@ -351,15 +351,16 @@ def test():
     from lorm import Struct
     a = Struct()
     a.x = 1
+    now = datetime.datetime.now()
     #gi = (i+1>2**i.id+1 for i,k in [] if +i<<1 is not None and 2.2/3/(i.id+1)<1)
-    gi = (1 in (i.id,2,'3', 2==3) for i in [])
+    gi = (1 if i>2 else 0 for i in [] if i>2)
     print gi.gi_frame.f_locals['.0']
     print 'co_cellvars:', gi.gi_code.co_cellvars
     print 'co_freevars:', gi.gi_code.co_freevars
     print 'co_names:', gi.gi_code.co_names
     print 'co_consts:', gi.gi_code.co_consts
     print 'co_varnames:', gi.gi_code.co_varnames
-    #dis.dis(gi.gi_code)
+    dis.dis(gi.gi_code)
     print '-----------'
 
     d = Decompiler(gi)
