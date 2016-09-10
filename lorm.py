@@ -42,8 +42,8 @@ class Struct(dict):
             self.update(f)
 
     def __getattr__(self, name):
-        # Pickle is trying to get state from your object, and dict doesn't implement it. 
-        # Your __getattr__ is being called with "__getstate__" to find that magic method, 
+        # Pickle is trying to get state from your object, and dict doesn't implement it.
+        # Your __getattr__ is being called with "__getstate__" to find that magic method,
         # and returning None instead of raising AttributeError as it should.
         if name.startswith('__'):
             raise AttributeError
@@ -51,10 +51,10 @@ class Struct(dict):
 
     def __setattr__(self, name, val):
         self[name] = val
-    
+
     def __delattr__(self, name):
         self.pop(name, None)
-    
+
     def __hash__(self):
         return id(self)
 
@@ -62,7 +62,7 @@ class Struct(dict):
 def mysql_connect(*args, **kwargs):
     """
     Params:
-    host='', port=3306, username='', password='', database='', 
+    host='', port=3306, username='', password='', database='',
     autocommit=True, charset='utf8', autoreconnect=False
     """
     c = MysqlConnection()
@@ -80,15 +80,15 @@ class SQLError(Exception):
 
 
 class PyMysqlConnection(BaseConnection):
-    
+
     _last_query = ''
-    
+
     def __init__(self, *args, **kwargs):
         self.auto_reconnect = kwargs.pop('auto_reconnect', False)
         self.lock = threading.Lock()
         self.last_query = ''
         super(PyMysqlConnection, self).__init__(*args, **kwargs)
-        
+
     def reconnect(self):
         if self._sock is not None:
             self.close()
@@ -97,7 +97,7 @@ class PyMysqlConnection(BaseConnection):
         except:
             return False
         return True
-    
+
     def reconnect_until_ok(self):
         delay = 1
         while 1:
@@ -109,14 +109,14 @@ class PyMysqlConnection(BaseConnection):
             time.sleep(delay)
             if delay < 4:
                 delay *= 2
-    
+
     def safe_ping(self):
         try:
             self.ping(False)
             return True
         except:
             return False
-    
+
     def do_query(self, sql, unbuffered=False):
         while 1:
             try:
@@ -133,7 +133,7 @@ class PyMysqlConnection(BaseConnection):
                 if self.safe_ping():
                     raise
                 self.reconnect_until_ok()
-    
+
     def query(self, sql, unbuffered=False):
         self.lock.acquire()
         try:
@@ -147,35 +147,35 @@ class PyMysqlConnection(BaseConnection):
 
 
 class ProxyConnection:
-    
+
     def __init__(self, c, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
         self.c = c
-    
+
     def __getattr__(self, table_name):
         "return a queryset"
         if table_name.startswith('__'):
             raise AttributeError
         return QuerySet(self.c, table_name, *self.args, **self.kwargs)
-    
-    
+
+
 class MysqlConnection:
-    
+
     def __init__(self):
         self.conn = None
         self.conn_args = None
-    
-    def connect(self, host='', port=3306, username='', password='', database='', 
+
+    def connect(self, host='', port=3306, username='', password='', database='',
                 autocommit=True, charset='utf8', autoreconnect=False):
         args = locals()
         args.pop('self')
         self.conn_args = args
         c = PyMysqlConnection(
-            host=host, 
+            host=host,
             port=port,
-            user=username, 
-            password=password, 
+            user=username,
+            password=password,
             database=database,
             charset=charset,
             autocommit=autocommit,
@@ -183,57 +183,57 @@ class MysqlConnection:
         )
         self.conn = c
         return c
-    
+
     def close(self):
         if self.conn:
             self.conn.close()
             self.conn = None
-    
+
     def dup(self):
         """Create a new connection with same arguments."""
         o = MysqlConnection()
         assert self.conn_args, 'Connection was not established.'
         o.connect(**self.conn_args)
         return o
-        
+
     @property
     def locked(self):
         return self.conn.locked if self.conn else False
-    
+
     @property
     def last_query(self):
         return self.conn.last_query if self.conn else ''
-    
+
     def set_charset(self, charset):
         self.conn.set_charset(charset)
-    
+
     @property
     def charset(self):
         return self.conn.charset
-    
+
     def literal(self, value):
         return self.conn.literal(value)
-    
+
     def escape(self, value):
         return self.conn.escape(value)
-    
+
     def fetchall(self, sql, args=()):
         with self.conn.cursor() as cursor:
             cursor.execute(sql, args)
             return cursor.fetchall()
-    
+
     def fetchone(self, sql, args=()):
         with self.conn.cursor() as cursor:
             cursor.execute(sql, args)
             return cursor.fetchone()
-    
+
     def fetchall_dict(self, sql, args=()):
         with self.conn.cursor() as cursor:
             cursor.execute(sql, args)
             fields = [r[0] for r in cursor.description]
             rows = cursor.fetchall()
             return [Struct(zip(fields,row)) for row in rows]
-    
+
     def fetchone_dict(self, sql, args=()):
         with self.conn.cursor() as cursor:
             cursor.execute(sql, args)
@@ -242,7 +242,7 @@ class MysqlConnection:
                 return
             fields = [r[0] for r in cursor.description]
             return Struct(zip(fields, row))
-    
+
     def execute(self, sql, args=()):
         """
         Returns affected rows and lastrowid.
@@ -250,46 +250,46 @@ class MysqlConnection:
         with self.conn.cursor() as cursor:
             cursor.execute(sql, args)
             return cursor.rowcount, cursor.lastrowid
-    
+
     def execute_many(self, sql, args=()):
         """
         Execute a multi-row query. Returns affected rows.
         """
         with self.conn.cursor() as cursor:
             return cursor.executemany(sql, args)
-    
+
     def callproc(self, procname, *args):
         """Execute stored procedure procname with args, returns result rows"""
         with self.conn.cursor() as cursor:
             cursor.callproc(procname, args)
             return cursor.fetchall()
-    
+
     def begin(self):
         """Begin transaction."""
         self.conn.begin()
-    
+
     def commit(self):
         """Commit changes to stable storage"""
         self.conn.commit()
-    
+
     def autocommit(self, b):
         self.conn_args['autocommit'] = b
         self.conn.autocommit(b)
-    
+
     def get_autocommit(self):
         return self.conn.get_autocommit()
-    
+
     def rollback(self):
         """Roll back the current transaction"""
         self.conn.rollback()
-    
+
     def ping(self):
         """Check if the server is alive"""
         try:
             return self.conn.ping(False)
         except:
             return False
-    
+
     def __getattr__(self, table_name):
         """Returns a queryset"""
         if table_name.startswith('__'):
@@ -303,14 +303,14 @@ class MysqlConnection:
 
 
 class MysqlPool:
-    
+
     def __init__(self, *args, **kwargs):
         self.max_connections = kwargs.pop('max_connections', 0)
         self.args = args
         self.kwargs = kwargs
         self.connections = []
         self._lock = threading.Lock() # connecting lock
-    
+
     def do_connect(self):
         for c in self.connections:
             if not c.locked:
@@ -320,27 +320,27 @@ class MysqlPool:
         c = mysql_connect(*self.args, **self.kwargs)
         self.connections.append(c)
         return c
-    
+
     def connect(self):
         self._lock.acquire()
         try:
             return self.do_connect()
         finally:
             self._lock.release()
-    
+
     c = property(connect)
-    
+
     @property
     def last_query(self):
         return PyMysqlConnection._last_query
-    
+
     def size(self):
         return len(self.connections)
-    
+
     @property
     def full(self):
         return len(self.connections) >= self.max_connections > 0
-    
+
     def __len__(self):
         return len(self.connections)
 
@@ -348,9 +348,9 @@ class MysqlPool:
 def make_tablename(db_name, table_name):
     return "%s.%s" % (db_name, table_name) if db_name else table_name
 
-    
+
 class QuerySet:
-    
+
     def __init__(self, conn, table_name, db_name=''):
         "conn: a Connection object"
         self.conn = conn
@@ -369,13 +369,13 @@ class QuerySet:
         self.row_style = 0 # Element type, 0:dict, 1:list
         self._result = None
         self._exists = None
-    
+
     def escape(self, value):
         return self.conn.escape(value)
-    
+
     def literal(self, value):
         return self.conn.literal(value)
-    
+
     def make_select(self, fields):
         if not fields:
             return '*'
@@ -417,7 +417,7 @@ class QuerySet:
         elif op == 'range':
             return field + ' between ' + "%s and %s" % (self.literal(v[0]), self.literal(v[1]))
         return key + '=' + self.literal(v)
-    
+
     def make_where(self, args, kw):
         # field loopup
         a = ' and '.join('(%s)'%v for v in args)
@@ -433,7 +433,7 @@ class QuerySet:
         else:
             s = ''
         return "where %s" % s if s else ''
-    
+
     def make_order_by(self, fields):
         if not fields:
             return ''
@@ -445,7 +445,7 @@ class QuerySet:
                 f = f[1:] + ' desc'
             real_fields.append(f)
         return 'order by ' + ','.join(real_fields)
-    
+
     def reverse_order_list(self):
         if not self.order_list:
             self.order_list = ['-id']
@@ -460,13 +460,13 @@ class QuerySet:
                     s = '-' + s
                 orders.append(s)
             self.order_list = orders
-    
+
     def make_group_by(self, fields):
         if not fields:
             return ''
         having = ' having %s'%self.having if self.having else ''
         return 'group by ' + ','.join(fields) + having
-    
+
     def make_limit(self, limits):
         if not limits:
             return ''
@@ -476,13 +476,13 @@ class QuerySet:
         if not start:
             return 'limit %s' % stop
         return 'limit %s, %s' % (start, stop-start)
-    
+
     def make_join(self, join_list):
         if not join_list:
             return ''
         return '\n '.join(join_list)
-    
-    def make_query(self, select_list=None, cond_list=None, cond_dict=None, 
+
+    def make_query(self, select_list=None, cond_list=None, cond_dict=None,
                    join_list=None, group_list=None, order_list=None, limits=None):
         select = self.make_select(select_list or self.select_list)
         cond = self.make_where(cond_list or self.cond_list, cond_dict or self.cond_dict)
@@ -496,10 +496,10 @@ class QuerySet:
             table_name += ' ' + alias
         sql = "select %s from %s %s %s %s %s %s" % (select, table_name, join, cond, group, order, limit)
         return sql
-        
+
     def make_update_fields(self, kw):
         return ','.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
-    
+
     @property
     def query(self):
         return self.make_query()
@@ -513,16 +513,16 @@ class QuerySet:
         else:
             self._result = self.conn.fetchall_dict(sql)
         return self._result
-    
+
     def clone(self):
         return copy.copy(self)
-    
+
     def group_by(self, *fields, **kw):
         q = self.clone()
         q.group_list += fields
         q.having = kw.get('having') or ''
         return q
-    
+
     def order_by(self, *fields):
         q = self.clone()
         q.order_list = fields
@@ -537,7 +537,7 @@ class QuerySet:
         q = self.clone()
         q.row_style = 1
         return q
-    
+
     def get(self, *args, **kw):
         cond_dict = dict(self.cond_dict)
         cond_dict.update(kw)
@@ -547,19 +547,19 @@ class QuerySet:
             return self.conn.fetchone(sql)
         else:
             return self.conn.fetchone_dict(sql)
-    
+
     def filter(self, *args, **kw):
         q = self.clone()
         q.cond_dict.update(kw)
         q.cond_list += args
         return q
-    
+
     def first(self):
         return self[0]
-    
+
     def last(self):
         return self[-1]
-    
+
     def create(self, ignore=False, **kw):
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
@@ -567,7 +567,7 @@ class QuerySet:
         sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.tables[0], fields, tokens)
         _, lastid = self.conn.execute(sql, kw.values())
         return lastid
-    
+
     def bulk_create(self, obj_list, ignore=False):
         "Returns affectrows"
         if not obj_list:
@@ -579,12 +579,12 @@ class QuerySet:
         sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.tables[0], fields, tokens)
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
-    
+
     def count(self):
         sql = self.make_query(select_list=['count(*) n'])
         row = self.conn.fetchone(sql)
         return row[0] if row else 0
-    
+
     def exists(self):
         if self._exists is not None:
             return self._exists
@@ -593,7 +593,7 @@ class QuerySet:
         b = bool(row)
         self._exists = b
         return b
-    
+
     def allot_alias(self, names):
         "allocate alias to tables in sequence"
         names = [s for s in names if s not in self.aliases.values()]
@@ -603,7 +603,7 @@ class QuerySet:
                 if t not in self.aliases:
                     self.aliases[t] = name
                     break
-    
+
     def join(self, table_name, cond, op='inner'):
         "cond: a.id=b.id, 这里a必须是table_name的别名, 也就是说新加入的表的别名必须写在前面."
         m = RE_JOIN_ALIAS.search(cond)
@@ -618,10 +618,10 @@ class QuerySet:
         sql = "%s join %s %s on %s" % (op, table_name, alias, cond)
         q.join_list.append(sql)
         return q
-    
+
     def ljoin(self, table_name, cond):
         return self.join(table_name, cond, 'left')
-    
+
     def rjoin(self, table_name, cond):
         return self.join(table_name, cond, 'right')
 
@@ -634,7 +634,7 @@ class QuerySet:
         sql = "update %s set %s %s" % (self.tables[0], update_fields, cond)
         n, _ = self.conn.execute(sql)
         return n
-    
+
     def delete(self, *names):
         "return affected rows"
         cond = self.make_where(self.cond_list, self.cond_dict)
@@ -648,11 +648,11 @@ class QuerySet:
         sql = "delete %s from %s %s %s %s" % (d_names, table_name, join, cond, limit)
         n, _ = self.conn.execute(sql)
         return n
-    
+
     def __iter__(self):
         rows = self.flush()
         return iter(rows)
-    
+
     def __len__(self):
         rows = self.flush()
         return len(rows)
@@ -676,8 +676,6 @@ class QuerySet:
 
     def __bool__(self):
         return self.exists()
-    
+
     def __nonzero__(self):      # Python 2 compatibility
         return self.exists()
-    
-    
