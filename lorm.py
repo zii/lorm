@@ -11,12 +11,11 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.12'
+__version__ = '0.2.13'
 __all__ = [
     'mysql_connect',
     'Struct',
     'MysqlConnection',
-    'MysqlPool',
     'SQLError',
     'QuerySet',
 ]
@@ -68,11 +67,6 @@ def mysql_connect(*args, **kwargs):
     c = MysqlConnection()
     c.connect(*args, **kwargs)
     return c
-
-
-def mysql_pool(*args, **kwargs):
-    p = MysqlPool(*args, **kwargs)
-    return p
 
 
 class SQLError(Exception):
@@ -300,49 +294,6 @@ class MysqlConnection:
         """Use other db"""
         p = ProxyConnection(self, db_name=db_name)
         return p
-
-
-class MysqlPool:
-
-    def __init__(self, *args, **kwargs):
-        self.max_connections = kwargs.pop('max_connections', 0)
-        self.args = args
-        self.kwargs = kwargs
-        self.connections = []
-        self._lock = threading.Lock() # connecting lock
-
-    def do_connect(self):
-        for c in self.connections:
-            if not c.locked:
-                return c
-        if self.full:
-            return random.choice(self.connections)
-        c = mysql_connect(*self.args, **self.kwargs)
-        self.connections.append(c)
-        return c
-
-    def connect(self):
-        self._lock.acquire()
-        try:
-            return self.do_connect()
-        finally:
-            self._lock.release()
-
-    c = property(connect)
-
-    @property
-    def last_query(self):
-        return PyMysqlConnection._last_query
-
-    def size(self):
-        return len(self.connections)
-
-    @property
-    def full(self):
-        return len(self.connections) >= self.max_connections > 0
-
-    def __len__(self):
-        return len(self.connections)
 
 
 def make_tablename(db_name, table_name):

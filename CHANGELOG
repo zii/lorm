@@ -1,3 +1,8 @@
+lorm 0.2.13 2016-9-24
+
+[DEL]   remove MysqlPool
+
+
 lorm 0.2.11 2016-8-25
 
 [NEW]   MysqlConnection.dup
@@ -33,7 +38,7 @@ lorm 0.2.3 2016-8-20
 
 lorm 0.2.3 2016-8-20
 
-[NEW]   add new argument: ignore 
+[NEW]   add new argument: ignore
 
 [FIX]   QuerySet.filter(xxx__in=[]) crushed when list is empty
 [FIX]   execute_many returns affected row count.
@@ -53,7 +58,7 @@ lorm 0.2.0 2016-8-20
 [NEW]   add test scripts
 
 [FIX]   disorder in make_query
-[FIX]   modify escape and literal to support charset 
+[FIX]   modify escape and literal to support charset
 
 
 lorm 0.1.13 2016-8-18
