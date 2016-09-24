@@ -4,7 +4,7 @@ Lorm: Python ORM without models.
 .. image:: https://img.shields.io/pypi/v/lorm.svg
     :target: https://pypi.python.org/pypi/lorm
 
-Lorm is a light weight ORM library for Python, model-less, Django style lookup expressions. 
+Lorm is a light weight ORM library for Python, model-less, Django style lookup expressions.
 It's suitable for small standalone database script.
 
 
@@ -53,14 +53,13 @@ Example
 
     >>> c.fetchall("select * from pets")
     ((1, u'cat'), (2, u'dog'), (3, u'bird'))
-    
+
 For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_
 
 Features
 --------
-- No Model, use table name directly.
+- Table is model
 - Auto reconnect
-- Connection pool
 - Django style lookup expressions
 - Threading safe
 
