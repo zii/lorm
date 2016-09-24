@@ -58,8 +58,9 @@ For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py
 
 Features
 --------
-- Table is model
+- No Model, use table name directly.
 - Auto reconnect
+- Connection pool
 - Django style lookup expressions
 - Threading safe
 
