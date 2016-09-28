@@ -1,3 +1,8 @@
+lorm 0.2.15 2016-9-28
+
+[FIX]   fix 'in' operation with empty argument.
+
+
 lorm 0.2.11 2016-8-25
 
 [NEW]   MysqlConnection.dup

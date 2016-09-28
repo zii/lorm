@@ -31,7 +31,8 @@ def test_pool():
     pool = lorm.mysql_pool('localhost', 3306, 'root', 'root', 'test', autocommit=1)
     print pool.c.pets.filter(id=1).first()
     print pool.size()
-    print pool.c.pets.filter(id=2).first()
+    print pool.c.pets.filter(id__in=set([]))[:]
+    print pool.c.last_query
 
 def test_example():
     c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')

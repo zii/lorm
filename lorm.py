@@ -406,7 +406,7 @@ class QuerySet:
                 return field + '!=' + self.literal(v)
         elif op == 'in':
             if not v:
-                return ''
+                return '0'
             return field + ' in ' + self.literal(v)
         elif op == 'startswith':
             return field + ' like ' + "'%s%%%%'" % self.escape(v)
