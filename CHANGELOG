@@ -1,8 +1,3 @@
-lorm 0.2.13 2016-9-24
-
-[DEL]   remove MysqlPool
-
-
 lorm 0.2.11 2016-8-25
 
 [NEW]   MysqlConnection.dup

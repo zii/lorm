@@ -27,6 +27,12 @@ def test_rollback():
     c.rollback()
     c.commit()
 
+def test_pool():
+    pool = lorm.mysql_pool('localhost', 3306, 'root', 'root', 'test', autocommit=1)
+    print pool.c.pets.filter(id=1).first()
+    print pool.size()
+    print pool.c.pets.filter(id=2).first()
+
 def test_example():
     c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
     id = c.pets.create(name='cat')
@@ -37,6 +43,7 @@ def test_example():
 
 if __name__ == '__main__':
     "test"
+    test_pool()
     #test_example()
     #test_commit()
     #test_reconnect()
