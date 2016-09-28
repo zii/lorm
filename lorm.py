@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 
 
-__version__ = '0.2.14'
+__version__ = '0.2.16'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -409,11 +409,11 @@ class QuerySet:
                 return '0'
             return field + ' in ' + self.literal(v)
         elif op == 'startswith':
-            return field + ' like ' + "'%s%%%%'" % self.escape(v)
+            return field + ' like ' + "'%s%%%%'" % str(v)
         elif op == 'endswith':
-            return field + ' like ' + "'%%%%%s'" % self.escape(v)
+            return field + ' like ' + "'%%%%%s'" % str(v)
         elif op == 'contains':
-            return field + ' like ' + "'%%%%%s%%%%'" % self.escape(v)
+            return field + ' like ' + "'%%%%%s%%%%'" % str(v)
         elif op == 'range':
             return field + ' between ' + "%s and %s" % (self.literal(v[0]), self.literal(v[1]))
         return key + '=' + self.literal(v)
