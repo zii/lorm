@@ -8,7 +8,7 @@ import datetime
 globals().update(opcode.opmap)
 
 BINOP_SET = set([
-    BINARY_MULTIPLY, BINARY_DIVIDE, BINARY_MODULO, BINARY_FLOOR_DIVIDE, 
+    BINARY_MULTIPLY, BINARY_DIVIDE, BINARY_MODULO, BINARY_FLOOR_DIVIDE,
     BINARY_TRUE_DIVIDE, BINARY_LSHIFT, BINARY_RSHIFT, BINARY_AND, BINARY_XOR,
     BINARY_OR, BINARY_ADD, BINARY_SUBTRACT, BINARY_POWER,
 ])
@@ -34,8 +34,10 @@ FUNC_ALIAS = {
 }
 
 def get_op_priority(op):
-    if op in (LOAD_GLOBAL, LOAD_FAST, LOAD_CONST, LOAD_DEREF, LOAD_ATTR, 
+    if op in (LOAD_GLOBAL, LOAD_FAST, LOAD_CONST, LOAD_DEREF, LOAD_ATTR,
               CALL_FUNCTION, BUILD_TUPLE, BUILD_LIST):
+        return 7
+    elif op in opcode.hasjabs:
         return 7
     elif op in (BINARY_POWER, ):
         return 6
@@ -103,13 +105,13 @@ class Expression:
         self.atom = atom
         self.prio = get_op_priority(op)
         self.o = o
-    
+
     @property
     def escape(self):
         if self.o:
             return escape(self.o)
         return str(self.v)
-    
+
     @property
     def literal(self):
         if self.o:
@@ -118,13 +120,13 @@ class Expression:
         if self.op == LOAD_FAST:
             return "%s.*" % v
         return literal(v) if self.atom else str(v)
-    
+
     def brackets(self, op):
         p = get_op_priority(op)
         if p > self.prio:
             return '(%s)' % self.literal
         return self.literal
-    
+
     def __str__(self):
         return self.literal
 
@@ -154,11 +156,11 @@ class Instruction:
             s += " (%s)" % str(self.value)
         return s
 
-def find_inst(insts, op, reverse=True):
+def find_inst(insts, op, reverse=True, arg=None):
     iter = reversed(insts) if reverse else insts
     ops = op if isinstance(op, (tuple, list)) else [op]
     for i, inst in enumerate(iter):
-        if inst.op in ops:
+        if inst.op in ops and (arg is None or arg==inst.arg):
             return len(insts)-i if reverse else i
     return -1
 
@@ -169,7 +171,7 @@ def print_insts(insts):
 class UnsupportOp(Exception):
     def __init__(self, op):
         self.opname = opcode.opname[op]
-    
+
     def __str__(self):
         return self.opname
 
@@ -188,13 +190,13 @@ class Decompiler:
         self.inst_map = {} # {line: Instruction}
         self.field_insts = []
         self.cond_insts = []
-    
+
     def d1(self):
         "pass one: translate bytes to instruction sequence"
         insts = []
         inst_map = {}
         bytes = self.bytes
-        
+
         size = len(bytes)
         i = 0
         while i < size:
@@ -208,7 +210,7 @@ class Decompiler:
                 i += 3
             else:
                 i += 1
-            
+
             if op == LOAD_FAST:
                 value = self.varnames[arg]
                 if value == '.0':
@@ -225,16 +227,19 @@ class Decompiler:
             elif op == LOAD_ATTR:
                 value = self.names[arg]
             elif op == COMPARE_OP:
-                value = opcode.cmp_op[arg]
+                if arg == 2: #==
+                    value = '='
+                else:
+                    value = opcode.cmp_op[arg]
             elif op == CALL_FUNCTION:
                 value = arg
             inst = Instruction(line, op, arg, value)
             insts.append(inst)
             inst_map[line] = inst
-        
+
         self.insts = insts
         self.inst_map = inst_map
-    
+
     def d2(self):
         "pass two: split instructions into two parts, fields sequence and condition sequence."
         insts = self.insts
@@ -243,7 +248,7 @@ class Decompiler:
         end_i -= 1
         start_i = find_inst(insts, STORE_FAST)
         assert start_i >= 0
-        jump_i = find_inst(insts, (POP_JUMP_IF_FALSE, POP_JUMP_IF_TRUE))
+        jump_i = find_inst(insts, POP_JUMP_IF_FALSE, arg=3)
         if jump_i >= 0:
             cond_insts = insts[start_i:jump_i]
             field_insts = insts[jump_i:end_i]
@@ -252,12 +257,12 @@ class Decompiler:
             cond_insts = []
         self.field_insts = field_insts
         self.cond_insts = cond_insts
-    
+
     def explain_cond(self, insts, start, end):
         "decompile expression"
         if not insts:
             return
-        
+
         stack = []
         def push(op, v):
             stack.append(Expression(op, v))
@@ -340,12 +345,12 @@ class Decompiler:
                 pusho(op, row, row)
             else:
                 raise UnsupportOp(op)
-            
+
             i += 1
-            
+
         assert len(stack) == 1, stack
         return stack.pop()
-    
+
 
 def test():
     from lorm import Struct
@@ -353,7 +358,7 @@ def test():
     a.x = 1
     now = datetime.datetime.now()
     #gi = (i+1>2**i.id+1 for i,k in [] if +i<<1 is not None and 2.2/3/(i.id+1)<1)
-    gi = (1 if i>2 else 0 for i in [] if i>2)
+    gi = (1 if (0 or 2) and (3 if i and (4 or 4) else 0) and 3 else 0 for i in [])
     print gi.gi_frame.f_locals['.0']
     print 'co_cellvars:', gi.gi_code.co_cellvars
     print 'co_freevars:', gi.gi_code.co_freevars
@@ -366,9 +371,9 @@ def test():
     d = Decompiler(gi)
     d.d1()
     d.d2()
-    
+
     print locals()['d']
-    
+
     print '---- FIELD INSTS ----'
     print_insts(d.field_insts)
     print '---- COND INSTS ----'
