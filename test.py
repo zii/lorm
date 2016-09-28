@@ -2,16 +2,10 @@
 import lorm
 import datetime
 
-def test_pool():
-    pool = lorm.mysql_pool('localhost', 3306, 'root', 'root', 'test', charset='utf8', autocommit=True, autoreconnect=1)
-    c = pool.connect()
-    print c.pets.get(id=1)
-    print c.last_query
-
 def test_reconnect():
     c = lorm.mysql_connect('192.168.0.111', 3306, 'root', 'root', 'test', autoreconnect=1)
     print c.fetchall("select sleep(10)")
-    
+
 def test_commit():
     c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test', autocommit=0)
     c.pets.filter(id=1).update(name='cat')
@@ -32,7 +26,7 @@ def test_rollback():
     c.pets.create(name='bird')
     c.rollback()
     c.commit()
-    
+
 def test_example():
     c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
     id = c.pets.create(name='cat')
@@ -43,15 +37,14 @@ def test_example():
 
 if __name__ == '__main__':
     "test"
-    test_example()
+    #test_example()
     #test_commit()
     #test_reconnect()
     #test_rollback()
-    
+
     #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
     #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
-    #test_pool()
-    
+
     #print c.pets.filter(id=11).update(name='xxx')
     #print c.pets.filter(id=15).delete('pets')
     #print c['crawler'].goods.rows()[0]
