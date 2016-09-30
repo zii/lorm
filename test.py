@@ -41,11 +41,13 @@ def test_example():
     print c.pets.get(id=id)
     print c.last_query
     print c.fetchall("select * from pets")
+    print c.pets.filter(name__startswith="ca")[:]
+    print c.pets.filter(id=32).delete()
 
 if __name__ == '__main__':
     "test"
-    test_pool()
-    #test_example()
+    #test_pool()
+    test_example()
     #test_commit()
     #test_reconnect()
     #test_rollback()
@@ -79,7 +81,7 @@ if __name__ == '__main__':
     #print c.tmp_id.order_by('?').first()
     #print c.auth_user.order_by('-id').get(is_active=1)
     #print c.auth_user[-727011]
-    #print c.auth_user.filter(is_active=1).order_by('-id').query
+    #print c.auth_user.filter(is_active=1).order_by('-id').sql
     #print c.word2.filter(id=3).delete()
     #sql = "insert into word2 set text=%s" % literal("c'a't")
     #print c.execute(sql)

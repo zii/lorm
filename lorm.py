@@ -9,9 +9,9 @@ import random
 
 import pymysql
 from pymysql.connections import Connection as BaseConnection
+from pymysql.converters import escape_string
 
-
-__version__ = '0.2.16'
+__version__ = '0.2.17'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -22,8 +22,6 @@ __all__ = [
 ]
 
 LOOKUP_SEP = '__'
-
-RE_JOIN_ALIAS = re.compile(r'^(.+?)\..+?\s*=\s*(.+?)\.')
 
 
 class Struct(dict):
@@ -192,7 +190,7 @@ class MysqlConnection:
     def dup(self):
         """Create a new connection with same arguments."""
         o = MysqlConnection()
-        assert self.conn_args, 'Connection was not established.'
+        assert self.conn_args, 'Connection is not established.'
         o.connect(**self.conn_args)
         return o
 
@@ -345,20 +343,13 @@ class MysqlPool:
         return len(self.connections)
 
 
-def make_tablename(db_name, table_name):
-    return "%s.%s" % (db_name, table_name) if db_name else table_name
-
-
 class QuerySet:
 
     def __init__(self, conn, table_name, db_name=''):
         "conn: a Connection object"
         self.conn = conn
         self.db_name = db_name
-        table_name = make_tablename(db_name, table_name)
-        self.tables = [table_name]
-        self.aliases = {}
-        self.join_list = []
+        self.table_name = "%s.%s" % (db_name, table_name) if db_name else table_name
         self.select_list = []
         self.cond_list = []
         self.cond_dict = {}
@@ -409,11 +400,11 @@ class QuerySet:
                 return '0'
             return field + ' in ' + self.literal(v)
         elif op == 'startswith':
-            return field + ' like ' + "'%s%%%%'" % str(v)
+            return field + ' like ' + "'%s%%%%'" % escape_string(str(v))
         elif op == 'endswith':
-            return field + ' like ' + "'%%%%%s'" % str(v)
+            return field + ' like ' + "'%%%%%s'" % escape_string(str(v))
         elif op == 'contains':
-            return field + ' like ' + "'%%%%%s%%%%'" % str(v)
+            return field + ' like ' + "'%%%%%s%%%%'" % escape_string(str(v))
         elif op == 'range':
             return field + ' between ' + "%s and %s" % (self.literal(v[0]), self.literal(v[1]))
         return key + '=' + self.literal(v)
@@ -477,31 +468,21 @@ class QuerySet:
             return 'limit %s' % stop
         return 'limit %s, %s' % (start, stop-start)
 
-    def make_join(self, join_list):
-        if not join_list:
-            return ''
-        return '\n '.join(join_list)
-
     def make_query(self, select_list=None, cond_list=None, cond_dict=None,
-                   join_list=None, group_list=None, order_list=None, limits=None):
+                   group_list=None, order_list=None, limits=None):
         select = self.make_select(select_list or self.select_list)
         cond = self.make_where(cond_list or self.cond_list, cond_dict or self.cond_dict)
         order = self.make_order_by(order_list or self.order_list)
         group = self.make_group_by(group_list or self.group_list)
         limit = self.make_limit(limits or self.limits)
-        join = self.make_join(join_list or self.join_list)
-        table_name = self.tables[0]
-        alias = self.aliases.get(table_name) or ''
-        if alias:
-            table_name += ' ' + alias
-        sql = "select %s from %s %s %s %s %s %s" % (select, table_name, join, cond, group, order, limit)
+        sql = "select %s from %s %s %s %s %s" % (select, self.table_name, cond, group, order, limit)
         return sql
 
     def make_update_fields(self, kw):
         return ','.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
 
     @property
-    def query(self):
+    def sql(self):
         return self.make_query()
 
     def flush(self):
@@ -564,7 +545,7 @@ class QuerySet:
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
         ignore_s = ' IGNORE' if ignore else ''
-        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.tables[0], fields, tokens)
+        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.table_name, fields, tokens)
         _, lastid = self.conn.execute(sql, kw.values())
         return lastid
 
@@ -576,7 +557,7 @@ class QuerySet:
         tokens = ','.join(['%s']*len(kw))
         fields = ','.join(kw.iterkeys())
         ignore_s = ' IGNORE' if ignore else ''
-        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.tables[0], fields, tokens)
+        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.table_name, fields, tokens)
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
 
@@ -594,58 +575,22 @@ class QuerySet:
         self._exists = b
         return b
 
-    def allot_alias(self, names):
-        "allocate alias to tables in sequence"
-        names = [s for s in names if s not in self.aliases.values()]
-        names = reversed(names)
-        for name in names:
-            for t in self.tables:
-                if t not in self.aliases:
-                    self.aliases[t] = name
-                    break
-
-    def join(self, table_name, cond, op='inner'):
-        "cond: a.id=b.id, 这里a必须是table_name的别名, 也就是说新加入的表的别名必须写在前面."
-        m = RE_JOIN_ALIAS.search(cond)
-        assert m, "Can't recognize table aliases."
-        aliases = m.groups()
-        q = self.clone()
-        if table_name.find('.') < 0:
-            table_name = make_tablename(self.db_name, table_name)
-        q.tables.append(table_name)
-        q.allot_alias(aliases)
-        alias = aliases[0]
-        sql = "%s join %s %s on %s" % (op, table_name, alias, cond)
-        q.join_list.append(sql)
-        return q
-
-    def ljoin(self, table_name, cond):
-        return self.join(table_name, cond, 'left')
-
-    def rjoin(self, table_name, cond):
-        return self.join(table_name, cond, 'right')
-
     def update(self, **kw):
         "return affected rows"
         if not kw:
             return 0
         cond = self.make_where(self.cond_list, self.cond_dict)
         update_fields = self.make_update_fields(kw)
-        sql = "update %s set %s %s" % (self.tables[0], update_fields, cond)
+        sql = "update %s set %s %s" % (self.table_name, update_fields, cond)
         n, _ = self.conn.execute(sql)
         return n
 
     def delete(self, *names):
         "return affected rows"
         cond = self.make_where(self.cond_list, self.cond_dict)
-        join = self.make_join(self.join_list)
         limit = self.make_limit(self.limits)
-        table_name = self.tables[0]
-        alias = self.aliases.get(table_name) or ''
-        if alias:
-            table_name += ' ' + alias
         d_names = ','.join(names)
-        sql = "delete %s from %s %s %s %s" % (d_names, table_name, join, cond, limit)
+        sql = "delete %s from %s %s %s" % (d_names, self.table_name, cond, limit)
         n, _ = self.conn.execute(sql)
         return n
 

@@ -1,3 +1,9 @@
+lorm 0.2.16 2016-9-30
+
+[FIX]   'startswith', 'endswith', 'contains' can only support string type now.
+[DEL]   remove 'join'
+
+
 lorm 0.2.16 2016-9-28
 
 [FIX]   fix 'startswith'
