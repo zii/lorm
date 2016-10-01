@@ -1,3 +1,11 @@
+lorm 0.2.18 2016-10-1
+
+[NEW]   support negative slice index. e.g. c.pets[-1:]
+[NEW]   add 'values', 'flat'
+[FIX]   using count() implements __len__()
+[FIX]   optimize count() and exists()
+
+
 lorm 0.2.16 2016-9-30
 
 [FIX]   'startswith', 'endswith', 'contains' can only support string type now.

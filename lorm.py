@@ -357,9 +357,10 @@ class QuerySet:
         self.group_list = []
         self.having = ''
         self.limits = []
-        self.row_style = 0 # Element type, 0:dict, 1:list
+        self.row_style = 0 # Element type, 0:dict, 1:2d list 2:flat list
         self._result = None
         self._exists = None
+        self._count  = None
 
     def escape(self, value):
         return self.conn.escape(value)
@@ -470,16 +471,25 @@ class QuerySet:
 
     def make_query(self, select_list=None, cond_list=None, cond_dict=None,
                    group_list=None, order_list=None, limits=None):
-        select = self.make_select(select_list or self.select_list)
-        cond = self.make_where(cond_list or self.cond_list, cond_dict or self.cond_dict)
-        order = self.make_order_by(order_list or self.order_list)
-        group = self.make_group_by(group_list or self.group_list)
-        limit = self.make_limit(limits or self.limits)
+        if select_list is None:
+            select_list = self.select_list
+        if cond_list is None:
+            cond_list = self.cond_list
+        if cond_dict is None:
+            cond_dict = self.cond_dict
+        if order_list is None:
+            order_list = self.order_list
+        if group_list is None:
+            group_list = self.group_list
+        if limits is None:
+            limits = self.limits
+        select = self.make_select(select_list)
+        cond = self.make_where(cond_list, cond_dict)
+        order = self.make_order_by(order_list)
+        group = self.make_group_by(group_list)
+        limit = self.make_limit(limits)
         sql = "select %s from %s %s %s %s %s" % (select, self.table_name, cond, group, order, limit)
         return sql
-
-    def make_update_fields(self, kw):
-        return ','.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
 
     @property
     def sql(self):
@@ -491,12 +501,22 @@ class QuerySet:
         sql = self.make_query()
         if self.row_style == 1:
             self._result = self.conn.fetchall(sql)
+        elif self.row_style == 2:
+            rows = self.conn.fetchall(sql)
+            vals = []
+            for row in rows:
+                vals += row
+            self._result = vals
         else:
             self._result = self.conn.fetchall_dict(sql)
         return self._result
 
     def clone(self):
-        return copy.copy(self)
+        new = copy.copy(self)
+        new._result = None
+        new._exists = None
+        new._count  = None
+        return new
 
     def group_by(self, *fields, **kw):
         q = self.clone()
@@ -511,12 +531,23 @@ class QuerySet:
 
     def select(self, *fields):
         q = self.clone()
-        q.select_list = fields
+        q.row_style = 0
+        if fields:
+            q.select_list = fields
         return q
 
-    def rows(self):
+    def values(self, *fields):
         q = self.clone()
         q.row_style = 1
+        if fields:
+            q.select_list = fields
+        return q
+
+    def flat(self, *fields):
+        q = self.clone()
+        q.row_style = 2
+        if fields:
+            q.select_list = fields
         return q
 
     def get(self, *args, **kw):
@@ -562,18 +593,29 @@ class QuerySet:
         return self.conn.execute_many(sql, args)
 
     def count(self):
-        sql = self.make_query(select_list=['count(*) n'])
+        if self._count is not None:
+            return self._count
+        if self._result is not None:
+            return len(self._result)
+        sql = self.make_query(select_list=['count(*) n'], order_list=[], limits=[None,1])
         row = self.conn.fetchone(sql)
-        return row[0] if row else 0
+        n = row[0] if row else 0
+        self._count = n
+        return n
 
     def exists(self):
+        if self._result is not None:
+            return True
         if self._exists is not None:
             return self._exists
-        sql = self.make_query(select_list=['1'], limits=[None,1])
+        sql = self.make_query(select_list=['1'], order_list=[], limits=[None,1])
         row = self.conn.fetchone(sql)
         b = bool(row)
         self._exists = b
         return b
+
+    def make_update_fields(self, kw):
+        return ','.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
 
     def update(self, **kw):
         "return affected rows"
@@ -599,10 +641,11 @@ class QuerySet:
         return iter(rows)
 
     def __len__(self):
-        rows = self.flush()
-        return len(rows)
+        return self.count()
 
     def __getitem__(self, k):
+        if self._result is not None:
+            return self._result.__getitem__(k)
         q = self.clone()
         if isinstance(k, (int, long)):
             if k < 0:
@@ -614,8 +657,11 @@ class QuerySet:
         elif isinstance(k, slice):
             start = None if k.start is None else int(k.start)
             stop = None if k.stop is None else int(k.stop)
+            assert k.step is None, 'Slice step is not supported.'
             if stop == sys.maxint:
                 stop = None
+            if start is not None and stop is None:
+                stop = len(self)
             q.limits = [start, stop]
             return q.flush()
 

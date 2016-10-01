@@ -47,6 +47,17 @@ Example
     >>> c.last_query
     select * from pets where id=1 limit 1
 
+**Row Style**
+
+.. code:: python
+
+    >>> c.pets.filter(id__lt=10).select('id')[:]
+    [{u'id': 1}, {u'id': 2}, {u'id': 4}, {u'id': 5}, {u'id': 6}, {u'id': 7}, {u'id': 8}, {u'id': 9}]
+    >>> c.pets.filter(id__lt=10).values('id')[:]
+    ((1,), (2,), (4,), (5,), (6,), (7,), (8,), (9,))
+    >>> c.pets.filter(id__lt=10).flat('id')[:]
+    [1, 2, 4, 5, 6, 7, 8, 9]
+
 **Raw SQL**
 
 .. code:: python

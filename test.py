@@ -47,14 +47,18 @@ def test_example():
 if __name__ == '__main__':
     "test"
     #test_pool()
-    test_example()
+    #test_example()
     #test_commit()
     #test_reconnect()
     #test_rollback()
 
     #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
-    #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
 
+    print c.goods.filter(id__lt=10).select('id')[:]
+    print c.goods.filter(id__lt=10).values('id')[:]
+    print c.goods.filter(id__lt=10).flat('id')[:]
+    #print q.count()
     #print c.pets.filter(id=11).update(name='xxx')
     #print c.pets.filter(id=15).delete('pets')
     #print c['crawler'].goods.rows()[0]
