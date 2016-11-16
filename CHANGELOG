@@ -1,3 +1,9 @@
+lorm 0.2.19 2016-11-16
+
+[NEW]   MysqlConnection.select_db
+[NEW]   MysqlConnection.dup(**kwargs)
+
+
 lorm 0.2.18 2016-10-1
 
 [NEW]   support negative slice index. e.g. c.pets[-1:]

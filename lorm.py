@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 from pymysql.converters import escape_string
 
-__version__ = '0.2.17'
+__version__ = '0.2.19'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -187,11 +187,13 @@ class MysqlConnection:
             self.conn.close()
             self.conn = None
 
-    def dup(self):
+    def dup(self, **kwargs):
         """Create a new connection with same arguments."""
         o = MysqlConnection()
         assert self.conn_args, 'Connection is not established.'
-        o.connect(**self.conn_args)
+        args = dict(self.conn_args)
+        args.update(kwargs)
+        o.connect(**args)
         return o
 
     @property
@@ -287,6 +289,11 @@ class MysqlConnection:
             return self.conn.ping(False)
         except:
             return False
+
+    def select_db(self, db):
+        """Set current db"""
+        self.conn.select_db(db)
+        self.conn.db = db
 
     def __getattr__(self, table_name):
         """Returns a queryset"""
