@@ -74,6 +74,7 @@ Features
 - Connection pool
 - Django style lookup expressions
 - Threading safe
+- Gevent friendly
 
 
 Requirements
