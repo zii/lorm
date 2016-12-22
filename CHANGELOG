@@ -1,3 +1,8 @@
+lorm 0.2.20 2016-12-22
+
+[DEL]   MysqlPool.__len__
+
+
 lorm 0.2.19 2016-11-16
 
 [NEW]   MysqlConnection.select_db

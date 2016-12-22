@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 from pymysql.converters import escape_string
 
-__version__ = '0.2.19'
+__version__ = '0.2.20'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -345,9 +345,6 @@ class MysqlPool:
     @property
     def full(self):
         return len(self.connections) >= self.max_connections > 0
-
-    def __len__(self):
-        return len(self.connections)
 
 
 class QuerySet:
