@@ -52,12 +52,12 @@ if __name__ == '__main__':
     #test_reconnect()
     #test_rollback()
 
-    #c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
-    c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
+    c = lorm.mysql_connect('192.168.0.130', 3306, 'dba_user', 'tbkt123456', 'tbkt')
+    #c = lorm.mysql_connect('121.40.85.144', 3306, 'root', 'aa131415', 'crawler')
 
-    print c.goods.filter(id__lt=10).select('id')[:]
-    print c.goods.filter(id__lt=10).values('id')[:]
-    print c.goods.filter(id__lt=10).flat('id')[:]
+    #print c.goods.filter(id__lt=10).select('id')[:]
+    #print c.goods.filter(id__lt=10).values('id')[:]
+    #print c.goods.filter(id__lt=10).flat('id')[:]
     #print q.count()
     #print c.pets.filter(id=11).update(name='xxx')
     #print c.pets.filter(id=15).delete('pets')
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     #if c.auth_user.filter(id=1):
     #    print 'exists'
     #print c['ziyuan_new'].yy_question.select('id', 'number')[-1]
-    #print c.auth_user[1:3]
+    print c.auth_user[1:3]
     #print c.auth_user.filter(username="1'356'5422119js").first()
     #print c.auth_user.order_by('-id').select('id', 'username').last()
     #print c.auth_user.count()

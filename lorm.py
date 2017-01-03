@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 from pymysql.converters import escape_string
 
-__version__ = '0.2.20'
+__version__ = '0.2.21'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -120,7 +120,7 @@ class PyMysqlConnection(BaseConnection):
             try:
                 PyMysqlConnection._last_query = self.last_query = sql
                 return super(PyMysqlConnection, self).query(sql, unbuffered)
-            except pymysql.err.ProgrammingError, e:
+            except pymysql.err.ProgrammingError as e:
                 raise SQLError(e)
             except:
                 # closed by hand
