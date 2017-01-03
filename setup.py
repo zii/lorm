@@ -19,7 +19,7 @@ setup(
         'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7+',
+        'Programming Language :: Python :: 2.7',
     ],
     install_requires = ['pymysql'],
     py_modules = ['lorm'],
