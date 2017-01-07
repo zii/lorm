@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 from pymysql.converters import escape_string
 
-__version__ = '0.2.21'
+__version__ = '0.2.22'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -664,8 +664,8 @@ class QuerySet:
             assert k.step is None, 'Slice step is not supported.'
             if stop == sys.maxint:
                 stop = None
-            if start is not None and stop is None:
-                stop = len(self)
+            if start and stop is None:
+                stop = self.count()
             q.limits = [start, stop]
             return q.flush()
 
