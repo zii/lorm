@@ -76,7 +76,7 @@ if __name__ == '__main__':
     #if c.auth_user.filter(id=1):
     #    print 'exists'
     #print c['ziyuan_new'].yy_question.select('id', 'number')[-1]
-    print c.auth_user[1:3]
+    print c.auth_user.filter(id__in=[586492, 586510, 378394], id__ni=[586510]).flat('id')[:3]
     #print c.auth_user.filter(username="1'356'5422119js").first()
     #print c.auth_user.order_by('-id').select('id', 'username').last()
     #print c.auth_user.count()

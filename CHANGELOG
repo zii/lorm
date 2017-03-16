@@ -1,3 +1,9 @@
+lorm 0.2.23 2017-3-16
+
+[NEW]   support "not in" option
+        db.pet.filter(id__ni=[1,2])
+
+
 lorm 0.2.22 2017-1-4
 
 [FIX]   fix slice bug

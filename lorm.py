@@ -11,7 +11,7 @@ import pymysql
 from pymysql.connections import Connection as BaseConnection
 from pymysql.converters import escape_string
 
-__version__ = '0.2.22'
+__version__ = '0.2.23'
 __all__ = [
     'mysql_connect',
     'Struct',
@@ -404,6 +404,10 @@ class QuerySet:
             if not v:
                 return '0'
             return field + ' in ' + self.literal(v)
+        elif op == 'ni':  # not in
+            if not v:
+                return '0'
+            return field + ' not in ' + self.literal(v)
         elif op == 'startswith':
             return field + ' like ' + "'%s%%%%'" % escape_string(str(v))
         elif op == 'endswith':
