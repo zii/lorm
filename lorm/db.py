@@ -1,32 +1,22 @@
 #coding: utf-8
-"A light weight python ORM without models."
-import copy
-import re
-import sys
+import datetime
 import time
+import copy
+import sys
+import logging
 import threading
-import random
 
-import pymysql
-from pymysql.connections import Connection as BaseConnection
-from pymysql.converters import escape_string
+import mysql_pool
 
-__version__ = '0.2.23'
 __all__ = [
-    'mysql_connect',
     'Struct',
-    'MysqlConnection',
-    'MysqlPool',
-    'SQLError',
-    'QuerySet',
+    'ConnectionProxy',
+    'Hub',
 ]
-
-LOOKUP_SEP = '__'
-
 
 class Struct(dict):
     """
-    Dict to object. e.g.:
+    - 为字典加上点语法. 例如:
     >>> o = Struct({'a':1})
     >>> o.a
     >>> 1
@@ -57,294 +47,215 @@ class Struct(dict):
         return id(self)
 
 
-def mysql_connect(*args, **kwargs):
-    """
-    Params:
-    host='', port=3306, username='', password='', database='',
-    autocommit=True, charset='utf8', autoreconnect=False
-    """
-    c = MysqlConnection()
-    c.connect(*args, **kwargs)
-    return c
+class ConnectionProxy:
+    def __init__(self, creator):
+        self.creator = creator
+        self.c = None
 
+    def connect(self):
+        if self.c:
+            return self.c
 
-def mysql_pool(*args, **kwargs):
-    p = MysqlPool(*args, **kwargs)
-    return p
-
-
-class SQLError(Exception):
-    pass
-
-
-class PyMysqlConnection(BaseConnection):
-
-    _last_query = ''
-
-    def __init__(self, *args, **kwargs):
-        self.auto_reconnect = kwargs.pop('auto_reconnect', False)
-        self.lock = threading.Lock()
-        self.last_query = ''
-        super(PyMysqlConnection, self).__init__(*args, **kwargs)
-
-    def reconnect(self):
-        if self._sock is not None:
-            self.close()
-        try:
-            self.connect()
-        except:
-            return False
-        return True
-
-    def reconnect_until_ok(self):
-        delay = 1
-        while 1:
-            #print 'reconnecting..'
-            ok = self.reconnect()
-            if ok:
-                #print 'reconnected.'
-                break
-            time.sleep(delay)
-            if delay < 4:
-                delay *= 2
-
-    def safe_ping(self):
-        try:
-            self.ping(False)
-            return True
-        except:
-            return False
-
-    def do_query(self, sql, unbuffered=False):
-        while 1:
-            try:
-                PyMysqlConnection._last_query = self.last_query = sql
-                return super(PyMysqlConnection, self).query(sql, unbuffered)
-            except pymysql.err.ProgrammingError as e:
-                raise SQLError(e)
-            except:
-                # closed by hand
-                if self._sock is None:
-                    raise
-                if not self.auto_reconnect:
-                    raise
-                if self.safe_ping():
-                    raise
-                self.reconnect_until_ok()
-
-    def query(self, sql, unbuffered=False):
-        self.lock.acquire()
-        try:
-            self.do_query(sql, unbuffered)
-        finally:
-            self.lock.release()
-
-    @property
-    def locked(self):
-        return self.lock.locked()
-
-
-class ProxyConnection:
-
-    def __init__(self, c, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-        self.c = c
-
-    def __getattr__(self, table_name):
-        "return a queryset"
-        if table_name.startswith('__'):
-            raise AttributeError
-        return QuerySet(self.c, table_name, *self.args, **self.kwargs)
-
-
-class MysqlConnection:
-
-    def __init__(self):
-        self.conn = None
-        self.conn_args = None
-
-    def connect(self, host='', port=3306, username='', password='', database='',
-                autocommit=True, charset='utf8', autoreconnect=False):
-        args = locals()
-        args.pop('self')
-        self.conn_args = args
-        c = PyMysqlConnection(
-            host=host,
-            port=port,
-            user=username,
-            password=password,
-            database=database,
-            charset=charset,
-            autocommit=autocommit,
-            auto_reconnect=autoreconnect,
-        )
-        self.conn = c
-        return c
+        conn = self.creator()
+        conn._lock = threading.Lock()
+        self.c = conn
+        return conn
 
     def close(self):
-        if self.conn:
-            self.conn.close()
-            self.conn = None
+        if self.c:
+            self.c.close()
+            self.c = None
 
-    def dup(self, **kwargs):
-        """Create a new connection with same arguments."""
-        o = MysqlConnection()
-        assert self.conn_args, 'Connection is not established.'
-        args = dict(self.conn_args)
-        args.update(kwargs)
-        o.connect(**args)
-        return o
+    def character_set_name(self):
+        return self.connect().character_set_name()
 
-    @property
-    def locked(self):
-        return self.conn.locked if self.conn else False
+    def set_character_set(self, charset):
+        return self.connect().set_character_set(charset)
 
-    @property
-    def last_query(self):
-        return self.conn.last_query if self.conn else ''
+    def literal(self, s):
+        return self.connect().literal(s)
 
-    def set_charset(self, charset):
-        self.conn.set_charset(charset)
+    def escape_string(self, s):
+        return self.connect().escape_string(s)
 
-    @property
-    def charset(self):
-        return self.conn.charset
+    def get_autocommit(self):
+        return self.connect().get_autocommit()
 
-    def literal(self, value):
-        return self.conn.literal(value)
+    def autocommit(self, on):
+        return self.connect().autocommit(on)
 
-    def escape(self, value):
-        return self.conn.escape(value)
+    def query(self, command):
+        return self.connect().query(command)
 
-    def fetchall(self, sql, args=()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(sql, args)
-            return cursor.fetchall()
+    def begin(self):
+        return self.query("BEGIN")
 
-    def fetchone(self, sql, args=()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(sql, args)
-            return cursor.fetchone()
+    def commit(self):
+        assert self.c, 'Need connect before commit!'
+        self.c.commit()
 
-    def fetchall_dict(self, sql, args=()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(sql, args)
-            fields = [r[0] for r in cursor.description]
-            rows = cursor.fetchall()
-            return [Struct(zip(fields,row)) for row in rows]
+    def rollback(self):
+        assert self.c, 'Need connect before rollback!'
+        self.c.rollback()
 
-    def fetchone_dict(self, sql, args=()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(sql, args)
-            row = cursor.fetchone()
-            if not row:
-                return
-            fields = [r[0] for r in cursor.description]
-            return Struct(zip(fields, row))
+    def fetchall(self, sql, args=None):
+        c = self.connect()
+        try:
+            with c._lock:
+                cursor = c.cursor()
+                cursor.execute(sql, args)
+                rows = cursor.fetchall()
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        return rows
 
-    def execute(self, sql, args=()):
+    def fetchone(self, sql, args=None):
+        c = self.connect()
+        try:
+            with c._lock:
+                cursor = c.cursor()
+                cursor.execute(sql, args)
+                row = cursor.fetchone()
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        return row
+
+    def fetchall_dict(self, sql, args=None):
+        c = self.connect()
+        try:
+            with c._lock:
+                cursor = c.cursor()
+                cursor.execute(sql, args)
+                fields = [r[0] for r in cursor.description]
+                rows = cursor.fetchall()
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        return [Struct(zip(fields,row)) for row in rows]
+
+    def fetchone_dict(self, sql, args=None):
+        c = self.connect()
+        try:
+            with c._lock:
+                cursor = c.cursor()
+                cursor.execute(sql, args)
+                row = cursor.fetchone()
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        if not row:
+            return
+        fields = [r[0] for r in cursor.description]
+        return Struct(zip(fields, row))
+
+    def execute(self, sql, args=None):
         """
         Returns affected rows and lastrowid.
         """
-        with self.conn.cursor() as cursor:
-            cursor.execute(sql, args)
-            return cursor.rowcount, cursor.lastrowid
+        c = self.connect()
+        try:
+            with c._lock:
+                cursor = c.cursor()
+                cursor.execute(sql, args)
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        return cursor.rowcount, cursor.lastrowid
 
-    def execute_many(self, sql, args=()):
+    def execute_many(self, sql, args=None):
         """
         Execute a multi-row query. Returns affected rows.
         """
-        with self.conn.cursor() as cursor:
-            return cursor.executemany(sql, args)
+        c = self.connect()
+        try:
+            with c._lock:
+                cursor = c.cursor()
+                rows = cursor.executemany(sql, args)
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        return rows
 
     def callproc(self, procname, *args):
         """Execute stored procedure procname with args, returns result rows"""
-        with self.conn.cursor() as cursor:
-            cursor.callproc(procname, args)
-            return cursor.fetchall()
-
-    def begin(self):
-        """Begin transaction."""
-        self.conn.begin()
-
-    def commit(self):
-        """Commit changes to stable storage"""
-        self.conn.commit()
-
-    def autocommit(self, b):
-        self.conn_args['autocommit'] = b
-        self.conn.autocommit(b)
-
-    def get_autocommit(self):
-        return self.conn.get_autocommit()
-
-    def rollback(self):
-        """Roll back the current transaction"""
-        self.conn.rollback()
-
-    def ping(self):
-        """Check if the server is alive"""
+        c = self.connect()
         try:
-            return self.conn.ping(False)
-        except:
-            return False
+            with c._lock:
+                cursor = c.cursor()
+                cursor.callproc(procname, args)
+                rows = cursor.fetchall()
+                cursor.close()
+        finally:
+            if c.get_autocommit():
+                self.close()
+        return rows
 
-    def select_db(self, db):
-        """Set current db"""
-        self.conn.select_db(db)
-        self.conn.db = db
+    def __enter__(self):
+        """Begin a transaction"""
+        self.autocommit_snapshot = on = self.get_autocommit()
+        if on:
+            self.autocommit(False)
+        return self
+
+    def __exit__(self, exc, value, tb):
+        """End a transaction"""
+        if exc:
+            self.rollback()
+        else:
+            self.commit()
+        if self.autocommit_snapshot:
+            self.autocommit(True)
+        self.close()
 
     def __getattr__(self, table_name):
-        """Returns a queryset"""
-        if table_name.startswith('__'):
-            raise AttributeError
         return QuerySet(self, table_name)
 
-    def __getitem__(self, db_name):
-        """Use other db"""
-        p = ProxyConnection(self, db_name=db_name)
-        return p
+    def __str__(self):
+        return '<ConnectionProxy: %x>' % (id(self))
 
 
-class MysqlPool:
+class Hub:
+    """
+    用法:
 
-    def __init__(self, *args, **kwargs):
-        self.max_connections = kwargs.pop('max_connections', 0)
-        self.args = args
-        self.kwargs = kwargs
-        self.connections = []
-        self._lock = threading.Lock() # connecting lock
+    >>> db = Hub()
+    >>> db.add_db('default', host='', port=3306, user='', passwd='', db='', 
+                    charset='utf8', autocommit=True, pool_size=8, wait_timeout=30)
+    >>> db.default.auth_user.get(id=1)
 
-    def do_connect(self):
-        for c in self.connections:
-            if not c.locked:
-                return c
-        if self.full:
-            return random.choice(self.connections)
-        c = mysql_connect(*self.args, **self.kwargs)
-        self.connections.append(c)
-        return c
+    :param pool_size: 连接池容量
+    :param wait_timeout: 连接最大保持时间(秒)
+    """
+    def __init__(self):
+        self.pool_manager = mysql_pool.PoolManager()
+        self.creators = {}
 
-    def connect(self):
-        self._lock.acquire()
-        try:
-            return self.do_connect()
-        finally:
-            self._lock.release()
+    def add_pool(self, alias, **connect_kwargs):
+        def creator():
+            return self.pool_manager.connect(**connect_kwargs)
+        self.creators[alias] = creator
 
-    c = property(connect)
+    def get_proxy(self, alias):
+        creator = self.creators.get(alias)
+        if creator:
+            return ConnectionProxy(creator)
 
-    @property
-    def last_query(self):
-        return PyMysqlConnection._last_query
+    def __getattr__(self, alias):
+        """返回一个库的代理连接"""
+        return self.get_proxy(alias)
 
-    def size(self):
-        return len(self.connections)
+    def __str__(self):
+        return '<Hub: %s>' % id(self)
 
-    @property
-    def full(self):
-        return len(self.connections) >= self.max_connections > 0
+LOOKUP_SEP = '__'
 
 
 class QuerySet:
@@ -366,11 +277,16 @@ class QuerySet:
         self._exists = None
         self._count  = None
 
-    def escape(self, value):
-        return self.conn.escape(value)
-
     def literal(self, value):
+        if hasattr(value, '__iter__'):
+            return '(' + ','.join(self.conn.literal(v) for v in value) + ')'
         return self.conn.literal(value)
+
+    def escape_string(self, s):
+        if isinstance(s, unicode):
+            charset = self.conn.character_set_name()
+            s = s.encode(charset)
+        return self.conn.escape_string(s)
 
     def make_select(self, fields):
         if not fields:
@@ -406,14 +322,14 @@ class QuerySet:
             return field + ' in ' + self.literal(v)
         elif op == 'ni':  # not in
             if not v:
-                return '0'
+                return '1'
             return field + ' not in ' + self.literal(v)
         elif op == 'startswith':
-            return field + ' like ' + "'%s%%%%'" % escape_string(str(v))
+            return field + ' like ' + "'%s%%'" % self.escape_string(v)
         elif op == 'endswith':
-            return field + ' like ' + "'%%%%%s'" % escape_string(str(v))
+            return field + ' like ' + "'%%%s'" % self.escape_string(v)
         elif op == 'contains':
-            return field + ' like ' + "'%%%%%s%%%%'" % escape_string(str(v))
+            return field + ' like ' + "'%%%s%%'" % self.escape_string(v)
         elif op == 'range':
             return field + ' between ' + "%s and %s" % (self.literal(v[0]), self.literal(v[1]))
         return key + '=' + self.literal(v)
@@ -623,7 +539,7 @@ class QuerySet:
         return b
 
     def make_update_fields(self, kw):
-        return ','.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
+        return ', '.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
 
     def update(self, **kw):
         "return affected rows"
@@ -678,3 +594,14 @@ class QuerySet:
 
     def __nonzero__(self):      # Python 2 compatibility
         return self.exists()
+
+    def wait(self, *args, **kw):
+        "扩展: 重复读取从库直到有数据, 表示数据已同步"
+        delays = [0, 0.2, 0.4, 0.8, 1.2, 1.4]
+        for dt in delays:
+            if dt > 0:
+                time.sleep(dt)
+            r = self.get(*args, **kw)
+            if r:
+                return r
+        logging.warning('slave db sync timeout: %s' % self.table_name)

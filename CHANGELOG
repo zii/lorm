@@ -1,3 +1,10 @@
+lorm 0.3.00 2017-4-19
+
+[NEW]   rewrite connection-pool, now connection-pool is built-in.
+        cancel auto-reconnect.
+        cancel single connection mode, add Hub(), unified management connection pool.
+
+
 lorm 0.2.23 2017-3-16
 
 [NEW]   support "not in" option

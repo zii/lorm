@@ -1,7 +1,7 @@
 #coding: utf-8
 from setuptools import setup, find_packages
 
-__version__ = '0.2.23'
+__version__ = '0.3.00'
 
 setup(
     name         = "lorm",
@@ -22,6 +22,6 @@ setup(
         'Programming Language :: Python :: 2.7',
     ],
     install_requires = ['pymysql'],
-    py_modules = ['lorm'],
-    #packages = find_packages(),
+    #py_modules = ['lorm'],
+    packages = find_packages(),
 )

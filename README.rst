@@ -29,49 +29,48 @@ Example
 
 .. code:: python
 
-    >>> c = lorm.mysql_connect('localhost', 3306, 'root', 'root', 'test')
+    >>> db = lorm.Hub()
+    >>> db.add_pool('default', host='localhost', port=3306, user='root', 
+        passwd='root', db='test', autocommit=True, 'pool_size':8, 'wait_timeout':30)
 
 **Insert**
 
 .. code:: python
 
-    >>> c.pets.create(name='cat')
+    >>> db.default.pets.create(name='cat')
     1
 
 **Query**
 
 .. code:: python
 
-    >>> c.pets.get(id=1)
+    >>> db.default.pets.get(id=1)
     {u'id': 2, u'name': u'cat'}
-    >>> c.last_query
-    select * from pets where id=1 limit 1
 
 **Row Style**
 
 .. code:: python
 
-    >>> c.pets.filter(id__lt=10).select('id')[:]
+    >>> db.default.pets.filter(id__lt=10).select('id')[:]
     [{u'id': 1}, {u'id': 2}, {u'id': 4}, {u'id': 5}, {u'id': 6}, {u'id': 7}, {u'id': 8}, {u'id': 9}]
-    >>> c.pets.filter(id__lt=10).values('id')[:]
+    >>> db.default.pets.filter(id__lt=10).values('id')[:]
     ((1,), (2,), (4,), (5,), (6,), (7,), (8,), (9,))
-    >>> c.pets.filter(id__lt=10).flat('id')[:]
+    >>> db.default.pets.filter(id__lt=10).flat('id')[:]
     [1, 2, 4, 5, 6, 7, 8, 9]
 
 **Raw SQL**
 
 .. code:: python
 
-    >>> c.fetchall("select * from pets")
+    >>> db.default.fetchall("select * from pets")
     ((1, u'cat'), (2, u'dog'), (3, u'bird'))
 
-For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_
+For more examples, see `test.py <https://github.com/zii/lorm/blob/master/lorm/test.py>`_
 
 Features
 --------
-- No Model, use table name directly.
-- Auto reconnect
-- Connection pool
+- No model
+- Built-in Connection pool
 - Django style lookup expressions
 - Threading safe
 - Gevent friendly
@@ -79,4 +78,4 @@ Features
 
 Requirements
 ------------
-- pymysql
+- pymysql or MySQL-python
