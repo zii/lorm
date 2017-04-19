@@ -31,7 +31,7 @@ Example
 
     >>> db = lorm.Hub()
     >>> db.add_pool('default', host='localhost', port=3306, user='root', 
-        passwd='root', db='test', autocommit=True, 'pool_size':8, 'wait_timeout':30)
+        passwd='root', db='test', autocommit=True, pool_size=8, wait_timeout=30)
 
 **Insert**
 

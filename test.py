@@ -1,5 +1,5 @@
 #coding: utf-8
-from db import Hub
+from lorm import Hub
 import datetime
 
 if __name__ == '__main__':
