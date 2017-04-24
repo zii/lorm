@@ -108,3 +108,12 @@ if __name__ == '__main__':
     # >>> 1
     #print db.default.auth_user.filter(id=10).delete()
     # >>> 0
+
+    # transaction success, commit
+    with db.default as c:
+       c.tmp_id.create(id=1)
+
+    # transaction fail, rollback
+    with db.default as c:
+        c.tmp_id.create(id=2)
+        c.tmp_id.create(id2=3)

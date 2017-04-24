@@ -255,10 +255,10 @@ class Hub:
     def __str__(self):
         return '<Hub: %s>' % id(self)
 
-LOOKUP_SEP = '__'
-
 
 class QuerySet:
+
+    LOOKUP_SEP = '__'
 
     def __init__(self, conn, table_name, db_name=''):
         "conn: a Connection object"
@@ -295,7 +295,7 @@ class QuerySet:
 
     def make_expr(self, key, v):
         "filter expression"
-        row = key.split(LOOKUP_SEP, 1)
+        row = key.split(self.LOOKUP_SEP, 1)
         field = row[0]
         op = row[1] if len(row)>1 else ''
         if not op:

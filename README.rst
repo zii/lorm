@@ -65,6 +65,13 @@ Example
     >>> db.default.fetchall("select * from pets")
     ((1, u'cat'), (2, u'dog'), (3, u'bird'))
 
+**Transaction**
+
+.. code:: python
+
+    >>> with db.default as c:
+    >>>     print c.pets.create(name='fish')
+
 For more examples, see `test.py <https://github.com/zii/lorm/blob/master/lorm/test.py>`_
 
 Features

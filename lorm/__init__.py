@@ -1,5 +1,5 @@
 #coding: utf-8
 
-__version__ = '0.3.01'
+__version__ = '0.3.02'
 
 from .db import *
