@@ -1,4 +1,4 @@
-lorm 0.3.4 2017-4-19
+lorm 0.3.4 2017-4-24
 
 [NEW]   add transaction example
 
@@ -40,7 +40,7 @@ lorm 0.2.19 2016-11-16
 lorm 0.2.18 2016-10-1
 
 [NEW]   support negative slice index. e.g. c.pets[-1:]
-[NEW]   add 'values', 'flat'
+[NEW]   add 'values', 'flat' row-style
 [FIX]   using count() implements __len__()
 [FIX]   optimize count() and exists()
 
