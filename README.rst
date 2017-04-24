@@ -72,7 +72,7 @@ Example
     >>> with db.default as c:
     >>>     print c.pets.create(name='fish')
 
-For more examples, see `test.py <https://github.com/zii/lorm/blob/master/lorm/test.py>`_
+For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py>`_
 
 Features
 --------
