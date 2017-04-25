@@ -1,5 +1,5 @@
 Lorm: A light weight mysql client library.
-=================================
+==========================================
 
 .. image:: https://img.shields.io/pypi/v/lorm.svg
     :target: https://pypi.python.org/pypi/lorm
