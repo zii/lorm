@@ -1,11 +1,11 @@
-Lorm: Python ORM without models.
+Lorm: A light weight mysql client library.
 =================================
 
 .. image:: https://img.shields.io/pypi/v/lorm.svg
     :target: https://pypi.python.org/pypi/lorm
 
-Lorm is a light weight ORM library for Python, model-less, Django style lookup expressions.
-It's suitable for small standalone database script.
+Lorm is a light weight mysql client library for Python.
+Built-in connection pool, Django style lookup expressions.
 
 
 Installation
@@ -76,7 +76,6 @@ For more examples, see `test.py <https://github.com/zii/lorm/blob/master/test.py
 
 Features
 --------
-- No model
 - Built-in Connection pool
 - Django style lookup expressions
 - Threading safe

@@ -10,7 +10,7 @@ setup(
     author       = "zii",
     author_email = "gamcat@gmail.com",
     url          = "https://github.com/zii/lorm",
-    description  = "A light weight python ORM without models.",
+    description  = "A light weight mysql client library.",
     long_description = open('README.rst').read(),
     license      = "MIT",
     classifiers=[
