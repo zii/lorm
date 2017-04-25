@@ -47,10 +47,26 @@ class Struct(dict):
         return id(self)
 
 
+class ExecuteLock:
+    def __init__(self, proxy):
+        self.p = proxy
+        self.c = proxy.connect()
+
+    def __enter__(self):
+        self.c._lock.acquire()
+        return self.c
+
+    def __exit__(self, exc, value, tb):
+        self.c._lock.release()
+        if not self.p.transacting and self.p.get_autocommit():
+            self.p.close()
+
+
 class ConnectionProxy:
     def __init__(self, creator):
         self.creator = creator
         self.c = None
+        self.transacting = False
 
     def connect(self):
         if self.c:
@@ -65,6 +81,11 @@ class ConnectionProxy:
         if self.c:
             self.c.close()
             self.c = None
+
+    @property
+    def open(self):
+        """return if connection alive"""
+        return self.c is not None and self.c.open
 
     def character_set_name(self):
         return self.connect().character_set_name()
@@ -99,56 +120,36 @@ class ConnectionProxy:
         self.c.rollback()
 
     def fetchall(self, sql, args=None):
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                cursor.execute(sql, args)
-                rows = cursor.fetchall()
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            cursor.execute(sql, args)
+            rows = cursor.fetchall()
+            cursor.close()
         return rows
 
     def fetchone(self, sql, args=None):
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                cursor.execute(sql, args)
-                row = cursor.fetchone()
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            cursor.execute(sql, args)
+            row = cursor.fetchone()
+            cursor.close()
         return row
 
     def fetchall_dict(self, sql, args=None):
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                cursor.execute(sql, args)
-                fields = [r[0] for r in cursor.description]
-                rows = cursor.fetchall()
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            cursor.execute(sql, args)
+            fields = [r[0] for r in cursor.description]
+            rows = cursor.fetchall()
+            cursor.close()
         return [Struct(zip(fields,row)) for row in rows]
 
     def fetchone_dict(self, sql, args=None):
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                cursor.execute(sql, args)
-                row = cursor.fetchone()
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            cursor.execute(sql, args)
+            row = cursor.fetchone()
+            cursor.close()
         if not row:
             return
         fields = [r[0] for r in cursor.description]
@@ -158,62 +159,48 @@ class ConnectionProxy:
         """
         Returns affected rows and lastrowid.
         """
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                cursor.execute(sql, args)
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            cursor.execute(sql, args)
+            cursor.close()
         return cursor.rowcount, cursor.lastrowid
 
     def execute_many(self, sql, args=None):
         """
         Execute a multi-row query. Returns affected rows.
         """
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                rows = cursor.executemany(sql, args)
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            rows = cursor.executemany(sql, args)
+            cursor.close()
         return rows
 
     def callproc(self, procname, *args):
         """Execute stored procedure procname with args, returns result rows"""
-        c = self.connect()
-        try:
-            with c._lock:
-                cursor = c.cursor()
-                cursor.callproc(procname, args)
-                rows = cursor.fetchall()
-                cursor.close()
-        finally:
-            if c.get_autocommit():
-                self.close()
+        with ExecuteLock(self) as c:
+            cursor = c.cursor()
+            cursor.callproc(procname, args)
+            rows = cursor.fetchall()
+            cursor.close()
         return rows
 
     def __enter__(self):
         """Begin a transaction"""
-        self.autocommit_snapshot = on = self.get_autocommit()
-        if on:
-            self.autocommit(False)
+        self.transacting = True
+        if self.get_autocommit():
+            self.begin()
         return self
 
     def __exit__(self, exc, value, tb):
         """End a transaction"""
-        if exc:
-            self.rollback()
-        else:
-            self.commit()
-        if self.autocommit_snapshot:
-            self.autocommit(True)
-        self.close()
+        try:
+            if exc:
+                self.rollback()
+            else:
+                self.commit()
+        finally:
+            self.transacting = False
+            self.close()
 
     def __getattr__(self, table_name):
         return QuerySet(self, table_name)

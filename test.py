@@ -111,9 +111,12 @@ if __name__ == '__main__':
 
     # transaction success, commit
     with db.default as c:
-       c.tmp_id.create(id=1)
+        c.tmp_id.create(id=5)
 
     # transaction fail, rollback
-    with db.default as c:
-        c.tmp_id.create(id=2)
-        c.tmp_id.create(id2=3)
+    # with db.default as c:
+    #     c.tmp_id.create(id=5)  # insert 5
+    #     c.tmp_id.create(id=1)  # Duplicate PRIMARY error and rollback
+
+    # is connection alive?
+    #print db.default.open
