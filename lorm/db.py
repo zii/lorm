@@ -255,6 +255,8 @@ class QuerySet:
         self.select_list = []
         self.cond_list = []
         self.cond_dict = {}
+        self.exclude_list = []
+        self.exclude_dict = {}
         self.order_list = []
         self.group_list = []
         self.having = ''
@@ -321,7 +323,7 @@ class QuerySet:
             return field + ' between ' + "%s and %s" % (self.literal(v[0]), self.literal(v[1]))
         return key + '=' + self.literal(v)
 
-    def make_where(self, args, kw):
+    def make_cond(self, args, kw):
         # field loopup
         a = ' and '.join('(%s)'%v for v in args)
         b_list = [self.make_expr(k, v) for k,v in kw.iteritems()]
@@ -335,7 +337,18 @@ class QuerySet:
             s = b
         else:
             s = ''
-        return "where %s" % s if s else ''
+        return s if s else ''
+
+    def make_where(self, cond_list, cond_dict, exclude_list, exclude_dict):
+        cond = self.make_cond(cond_list, cond_dict)
+        exclude = self.make_cond(exclude_list, exclude_dict)
+        if cond and exclude:
+            return 'where %s and not (%s)' % (cond, exclude)
+        elif cond:
+            return 'where %s' % cond
+        elif exclude:
+            return 'where not (%s)' % exclude
+        return ''
 
     def make_order_by(self, fields):
         if not fields:
@@ -381,6 +394,7 @@ class QuerySet:
         return 'limit %s, %s' % (start, stop-start)
 
     def make_query(self, select_list=None, cond_list=None, cond_dict=None,
+                   exclude_list=None, exclude_dict=None,
                    group_list=None, order_list=None, limits=None):
         if select_list is None:
             select_list = self.select_list
@@ -388,6 +402,10 @@ class QuerySet:
             cond_list = self.cond_list
         if cond_dict is None:
             cond_dict = self.cond_dict
+        if exclude_list is None:
+            exclude_list = self.exclude_list
+        if exclude_dict is None:
+            exclude_dict = self.exclude_dict
         if order_list is None:
             order_list = self.order_list
         if group_list is None:
@@ -395,7 +413,7 @@ class QuerySet:
         if limits is None:
             limits = self.limits
         select = self.make_select(select_list)
-        cond = self.make_where(cond_list, cond_dict)
+        cond = self.make_where(cond_list, cond_dict, exclude_list, exclude_dict)
         order = self.make_order_by(order_list)
         group = self.make_group_by(group_list)
         limit = self.make_limit(limits)
@@ -477,6 +495,12 @@ class QuerySet:
         q.cond_list += args
         return q
 
+    def exclude(self, *args, **kw):
+        q = self.clone()
+        q.exclude_dict.update(kw)
+        q.exclude_list += args
+        return q
+
     def first(self):
         return self[0]
 
@@ -532,7 +556,7 @@ class QuerySet:
         "return affected rows"
         if not kw:
             return 0
-        cond = self.make_where(self.cond_list, self.cond_dict)
+        cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
         update_fields = self.make_update_fields(kw)
         sql = "update %s set %s %s" % (self.table_name, update_fields, cond)
         n, _ = self.conn.execute(sql)
@@ -540,7 +564,7 @@ class QuerySet:
 
     def delete(self, *names):
         "return affected rows"
-        cond = self.make_where(self.cond_list, self.cond_dict)
+        cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
         limit = self.make_limit(self.limits)
         d_names = ','.join(names)
         sql = "delete %s from %s %s %s" % (d_names, self.table_name, cond, limit)

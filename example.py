@@ -70,6 +70,9 @@ if __name__ == '__main__':
     #print q[:]
     # >>> [1, 2, 3]
 
+    # exclude
+    #print db.slave.auth_user.filter(id__lt=10).exclude(id=2).flat('id')[:]
+
     # reverse order
     #print db.slave.auth_user.filter(id__lt=10).order_by('-id').flat('id')[:]
     # >>> [3, 2, 1]
@@ -110,8 +113,8 @@ if __name__ == '__main__':
     # >>> 0
 
     # transaction success, commit
-    with db.default as c:
-        c.tmp_id.create(id=5)
+    # with db.default as c:
+    #     c.tmp_id.create(id=5)
 
     # transaction fail, rollback
     # with db.default as c:
