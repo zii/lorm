@@ -1,3 +1,9 @@
+lorm 0.3.10 2017-4-28
+
+[FIX]   issue#1 add backquote to field name. Thanks zhanghaofei.
+[FIX]   ignore unknown charset exception
+
+
 lorm 0.3.9 2017-4-26
 
 [NEW]   add "exclude" filter
