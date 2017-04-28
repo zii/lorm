@@ -513,7 +513,8 @@ class QuerySet:
 
     def create(self, ignore=False, **kw):
         tokens = ','.join(['%s']*len(kw))
-        fields = ','.join(kw.iterkeys())
+        fields = ["`%s`"%k for k in kw.keys()]
+        fields = ','.join(fields)
         ignore_s = ' IGNORE' if ignore else ''
         sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.table_name, fields, tokens)
         _, lastid = self.conn.execute(sql, kw.values())
@@ -525,7 +526,8 @@ class QuerySet:
             return
         kw = obj_list[0]
         tokens = ','.join(['%s']*len(kw))
-        fields = ','.join(kw.iterkeys())
+        fields = ["`%s`"%k for k in kw.keys()]
+        fields = ','.join(fields)
         ignore_s = ' IGNORE' if ignore else ''
         sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.table_name, fields, tokens)
         args = [o.values() for o in obj_list]

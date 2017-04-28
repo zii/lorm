@@ -6,8 +6,8 @@ if __name__ == '__main__':
     "test"
     db = Hub()
     # master db connection
-    db.add_pool('default', host='192.168.0.130', port=3306, user='dba_user', 
-                passwd='tbkt123456', db='test', charset='utf8', autocommit=True,
+    db.add_pool('default', host='192.168.1.110', port=3306, user='root', 
+                passwd='1', db='test', charset='utf8', autocommit=True,
                 pool_size=8, wait_timeout=30)
     # slave db connection
     db.add_pool('slave', host='192.168.0.130', port=3306, user='dba_user', 
