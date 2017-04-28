@@ -274,7 +274,11 @@ class QuerySet:
     def escape_string(self, s):
         if isinstance(s, unicode):
             charset = self.conn.character_set_name()
-            s = s.encode(charset)
+            try:
+                s = s.encode(charset)
+            except:
+                # unknown python encoding
+                pass
         return self.conn.escape_string(s)
 
     def make_select(self, fields):
@@ -285,7 +289,7 @@ class QuerySet:
     def make_expr(self, key, v):
         "filter expression"
         row = key.split(self.LOOKUP_SEP, 1)
-        field = row[0]
+        field = "`%s`" % row[0]
         op = row[1] if len(row)>1 else ''
         if not op:
             if v is None:
