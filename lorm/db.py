@@ -47,7 +47,7 @@ class Struct(dict):
         return id(self)
 
 
-class ExecuteLock:
+class Executer:
     def __init__(self, proxy):
         self.p = proxy
         self.c = proxy.connect()
@@ -125,26 +125,26 @@ class ConnectionProxy:
         self.c.rollback()
 
     def fetchall(self, sql, args=None):
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             cursor.execute(sql, args)
             rows = cursor.fetchall()
         return rows
 
     def fetchone(self, sql, args=None):
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             cursor.execute(sql, args)
             row = cursor.fetchone()
         return row
 
     def fetchall_dict(self, sql, args=None):
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             cursor.execute(sql, args)
             fields = [r[0] for r in cursor.description]
             rows = cursor.fetchall()
         return [Struct(zip(fields,row)) for row in rows]
 
     def fetchone_dict(self, sql, args=None):
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             cursor.execute(sql, args)
             row = cursor.fetchone()
         if not row:
@@ -156,7 +156,7 @@ class ConnectionProxy:
         """
         Returns affected rows and lastrowid.
         """
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             cursor.execute(sql, args)
         return cursor.rowcount, cursor.lastrowid
 
@@ -164,13 +164,13 @@ class ConnectionProxy:
         """
         Execute a multi-row query. Returns affected rows.
         """
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             rows = cursor.executemany(sql, args)
         return rows
 
     def callproc(self, procname, *args):
         """Execute stored procedure procname with args, returns result rows"""
-        with ExecuteLock(self) as cursor:
+        with Executer(self) as cursor:
             cursor.callproc(procname, args)
             rows = cursor.fetchall()
         return rows
