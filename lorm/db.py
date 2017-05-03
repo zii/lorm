@@ -51,12 +51,16 @@ class ExecuteLock:
     def __init__(self, proxy):
         self.p = proxy
         self.c = proxy.connect()
+        self.cursor = None
 
     def __enter__(self):
         self.c._lock.acquire()
-        return self.c
+        self.cursor = self.c.cursor()
+        return self.cursor
 
     def __exit__(self, exc, value, tb):
+        self.p.last_executed = self.cursor._last_executed
+        self.cursor.close()
         self.c._lock.release()
         if not self.p.transacting and self.p.get_autocommit():
             self.p.close()
@@ -67,6 +71,7 @@ class ConnectionProxy:
         self.creator = creator
         self.c = None
         self.transacting = False
+        self.last_executed = None
 
     def connect(self):
         if self.c:
@@ -120,36 +125,28 @@ class ConnectionProxy:
         self.c.rollback()
 
     def fetchall(self, sql, args=None):
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             cursor.execute(sql, args)
             rows = cursor.fetchall()
-            cursor.close()
         return rows
 
     def fetchone(self, sql, args=None):
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             cursor.execute(sql, args)
             row = cursor.fetchone()
-            cursor.close()
         return row
 
     def fetchall_dict(self, sql, args=None):
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             cursor.execute(sql, args)
             fields = [r[0] for r in cursor.description]
             rows = cursor.fetchall()
-            cursor.close()
         return [Struct(zip(fields,row)) for row in rows]
 
     def fetchone_dict(self, sql, args=None):
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             cursor.execute(sql, args)
             row = cursor.fetchone()
-            cursor.close()
         if not row:
             return
         fields = [r[0] for r in cursor.description]
@@ -159,29 +156,23 @@ class ConnectionProxy:
         """
         Returns affected rows and lastrowid.
         """
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             cursor.execute(sql, args)
-            cursor.close()
         return cursor.rowcount, cursor.lastrowid
 
     def execute_many(self, sql, args=None):
         """
         Execute a multi-row query. Returns affected rows.
         """
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             rows = cursor.executemany(sql, args)
-            cursor.close()
         return rows
 
     def callproc(self, procname, *args):
         """Execute stored procedure procname with args, returns result rows"""
-        with ExecuteLock(self) as c:
-            cursor = c.cursor()
+        with ExecuteLock(self) as cursor:
             cursor.callproc(procname, args)
             rows = cursor.fetchall()
-            cursor.close()
         return rows
 
     def __enter__(self):

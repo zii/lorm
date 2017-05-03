@@ -1,3 +1,8 @@
+lorm 0.3.12 2017-5-2
+
+[NEW]   add ConnectionProxy.last_executed
+
+
 lorm 0.3.10 2017-4-28
 
 [FIX]   issue#1 add backquote to field name. Thanks zhanghaofei.
