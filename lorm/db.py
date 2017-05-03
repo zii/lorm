@@ -59,7 +59,7 @@ class ExecuteLock:
         return self.cursor
 
     def __exit__(self, exc, value, tb):
-        self.p.last_executed = self.cursor._last_executed
+        self.p.last_executed = getattr(self.cursor, '_last_executed', None)
         self.cursor.close()
         self.c._lock.release()
         if not self.p.transacting and self.p.get_autocommit():
