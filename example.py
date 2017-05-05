@@ -1,6 +1,7 @@
 #coding: utf-8
 from lorm import Hub
 import datetime
+import time
 
 if __name__ == '__main__':
     "test"
@@ -123,3 +124,16 @@ if __name__ == '__main__':
 
     # is connection alive?
     #print db.default.open
+
+    # test reconnect
+    c = db.slave
+    print c.auth_user.get(id=1).id
+    # turn off networking
+    time.sleep(5)
+    try:
+        print c.auth_user.get(id=1).id
+    except:
+        print 'broken'
+    # turn on networking
+    time.sleep(10)
+    print c.auth_user.get(id=1).id

@@ -180,6 +180,7 @@ class ConnectionProxy:
         self.transacting = True
         if self.get_autocommit():
             self.begin()
+        self.c._transacting = True
         return self
 
     def __exit__(self, exc, value, tb):
@@ -191,6 +192,7 @@ class ConnectionProxy:
                 self.commit()
         finally:
             self.transacting = False
+            self.c._transacting = False
             self.close()
 
     def __getattr__(self, table_name):
@@ -218,6 +220,10 @@ class Hub:
 
     def add_pool(self, alias, **connect_kwargs):
         def creator():
+            # Timeout before throwing an exception when connecting. 
+            # (default: 10, min: 1, max: 31536000)
+            if 'connect_timeout' not in connect_kwargs:
+                connect_kwargs['connect_timeout'] = 10
             return self.pool_manager.connect(**connect_kwargs)
         self.creators[alias] = creator
 
