@@ -24,7 +24,7 @@ if __name__ == '__main__':
     #print user.id, user.last_login
     # >>> 1 2013-04-10 11:22:06
 
-    print db.slave.auth_user[0]
+    #print db.slave.auth_user[0]
 
     # greater than
     #print db.slave.auth_user.filter(id__gt=10).first()
@@ -91,6 +91,10 @@ if __name__ == '__main__':
     # insert
     #print db.default.auth_user.create(id=10, username='13500000000xs', real_name='斑马')
     # >>> 10
+
+    # insert ... on duplicate
+    #print db.slave.auth_user.ondup(logins=1).create(username='super')
+    print db.slave.auth_user.ondup(logins=2).bulk_create([{'username':'super'}, {'username':'13607660526js'}])
 
     # bulk insert
     #users = [{'username':'13500000011xs', 'real_name':'仙人掌'}, 

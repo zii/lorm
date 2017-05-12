@@ -259,6 +259,8 @@ class QuerySet:
         self.exclude_dict = {}
         self.order_list = []
         self.group_list = []
+        self.ondup_list = []
+        self.ondup_dict = {}
         self.having = ''
         self.limits = []
         self.row_style = 0 # Element type, 0:dict, 1:2d list 2:flat list
@@ -511,12 +513,26 @@ class QuerySet:
     def last(self):
         return self[-1]
 
+    def ondup(self, *args, **kw):
+        """
+        MySQL feature: INSERT...ON DUPLICATE KEY UPDATE...
+        """
+        q = self.clone()
+        q.ondup_list = args
+        q.ondup_dict = kw
+        return q
+
     def create(self, ignore=False, **kw):
+        "Returns lastrowid"
         tokens = ','.join(['%s']*len(kw))
         fields = ["`%s`"%k for k in kw.keys()]
         fields = ','.join(fields)
         ignore_s = ' IGNORE' if ignore else ''
-        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.table_name, fields, tokens)
+        ondup_s = ''
+        if self.ondup_list or self.ondup_dict:
+            update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
+            ondup_s = ' ON DUPLICATE KEY UPDATE ' + update_fields
+        sql = "insert%s into %s (%s) values (%s)%s" % (ignore_s, self.table_name, fields, tokens, ondup_s)
         _, lastid = self.conn.execute(sql, kw.values())
         return lastid
 
@@ -529,7 +545,11 @@ class QuerySet:
         fields = ["`%s`"%k for k in kw.keys()]
         fields = ','.join(fields)
         ignore_s = ' IGNORE' if ignore else ''
-        sql = "insert%s into %s (%s) values (%s)" % (ignore_s, self.table_name, fields, tokens)
+        ondup_s = ''
+        if self.ondup_list or self.ondup_dict:
+            update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
+            ondup_s = ' ON DUPLICATE KEY UPDATE ' + update_fields
+        sql = "insert%s into %s (%s) values (%s)%s" % (ignore_s, self.table_name, fields, tokens, ondup_s)
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
 
@@ -555,15 +575,21 @@ class QuerySet:
         self._exists = b
         return b
 
-    def make_update_fields(self, kw):
-        return ', '.join('%s=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
+    def make_update_fields(self, args=[], kw={}):
+        f1 = ', '.join(args)
+        f2 = ', '.join('`%s`=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
+        if f1 and f2:
+            return f1 + ', ' + f2
+        elif f1:
+            return f1
+        return f2
 
-    def update(self, **kw):
+    def update(self, *args, **kw):
         "return affected rows"
-        if not kw:
+        if not args and not kw:
             return 0
         cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
-        update_fields = self.make_update_fields(kw)
+        update_fields = self.make_update_fields(args, kw)
         sql = "update %s set %s %s" % (self.table_name, update_fields, cond)
         n, _ = self.conn.execute(sql)
         return n
