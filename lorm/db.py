@@ -211,14 +211,17 @@ class Hub:
                     charset='utf8', autocommit=True, pool_size=8, wait_timeout=30)
     >>> db.default.auth_user.get(id=1)
 
-    :param pool_size: 连接池容量
-    :param wait_timeout: 连接最大保持时间(秒)
+    :param driver: MySQLdb or pymysql
     """
-    def __init__(self):
-        self.pool_manager = mysql_pool.PoolManager()
+    def __init__(self, driver):
+        self.pool_manager = mysql_pool.PoolManager(driver)
         self.creators = {}
 
     def add_pool(self, alias, **connect_kwargs):
+        """
+        :param pool_size: (optional)连接池容量
+        :param wait_timeout: (optional)连接最大保持时间(秒)
+        """
         def creator():
             # Timeout before throwing an exception when connecting. 
             # (default: 10, min: 1, max: 31536000)

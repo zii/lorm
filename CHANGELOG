@@ -1,3 +1,9 @@
+lorm 0.3.15 2017-5-12
+
+[NEW]   dynamically configured driver
+        remove install requires
+
+
 lorm 0.3.14 2017-5-5
 
 [NEW]   add MaxBadConnRetries like golang/database/sql

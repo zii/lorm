@@ -29,7 +29,9 @@ Example
 
 .. code:: python
 
-    >>> db = lorm.Hub()
+    >>> import pymysql
+    >>> import lorm
+    >>> db = lorm.Hub(pymysql)
     >>> db.add_pool('default', host='localhost', port=3306, user='root', 
         passwd='root', db='test', autocommit=True, pool_size=8, wait_timeout=30)
 

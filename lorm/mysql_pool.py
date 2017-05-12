@@ -6,15 +6,6 @@ import logging
 import Queue
 import types
 
-# compatible with pymysql
-# try:
-#     import pymysql; pymysql.install_as_MySQLdb()
-# except:
-#     pass
-import MySQLdb
-from MySQLdb import Error
-from MySQLdb.connections import Connection 
-
 
 # MaxBadConnRetries is the number of maximum retries if the driver returns
 # (2006, MySQL server has gone away) to signal a broken connection before forcing a new
@@ -141,8 +132,6 @@ class QueuePool:
                 break
 
 
-raw_connect = MySQLdb.connect
-
 def im_close(conn):
     if hasattr(conn, '_pool'):
         conn._pool.return_conn(conn)
@@ -163,7 +152,7 @@ def do_query(conn, sql, reconnect=True):
     try:
         conn._activetime = time.time()
         return conn._query(sql)
-    except Error as e:
+    except conn._driver.Error as e:
         # clear free connections?
         # if e[0] in (2006, 2013):
         #     conn._pool.clear()
@@ -181,9 +170,10 @@ def im_query(conn, sql):
     return do_query(conn, sql, True)
 
 
-class PoolManager: 
+class PoolManager:
 
-    def __init__(self):
+    def __init__(self, driver):
+        self.driver = driver
         self.pools = {}
 
     def connect(self, **kw):
@@ -191,9 +181,10 @@ class PoolManager:
         recycle = kw.pop('wait_timeout', 30)
 
         def creator():
-            c = raw_connect(**kw)
+            c = self.driver.connect(**kw)
+            c._driver = self.driver
             # monkey patch
-            if not hasattr(c, '_query'):
+            if hasattr(c, 'query') and not hasattr(c, '_query'):
                 c._query = c.query
                 c.query = types.MethodType(im_query, c)
             if not hasattr(c, '_close'):
@@ -204,17 +195,3 @@ class PoolManager:
         key = (kw['host'], kw['port'], kw['user'], kw['db'])
         pool = self.pools.setdefault(key, QueuePool(creator, pool_size=pool_size, recycle=recycle))
         return pool.connect()
-
-
-def monkey_patch(pool_size):
-    """Inception"""
-    manager = PoolManager(pool_size)
-
-    def im_connect(**kw):
-        return manager.connect(**kw)
-
-    MySQLdb.connect = im_connect
-    Connection._close = Connection.close
-    Connection.close = im_close  # 此时close不再关闭连接, 而是归还连接池, 查询完应该主动调用归还连接
-    Connection._query = Connection.query
-    Connection.query = im_query
