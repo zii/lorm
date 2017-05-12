@@ -80,10 +80,6 @@ Features
 --------
 - Built-in Connection pool
 - Django style lookup expressions
-- Threading safe
+- Concurrent safe
 - Gevent friendly
-
-
-Requirements
-------------
-- pymysql or MySQL-python
+- Dynamically driver
