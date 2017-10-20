@@ -270,8 +270,17 @@ class QuerySet:
 
     def literal(self, value):
         if hasattr(value, '__iter__'):
-            return '(' + ','.join(self.conn.literal(v) for v in value) + ')'
-        return self.conn.literal(value)
+            s = '(' + ','.join(self.conn.literal(v) for v in value) + ')'
+        else:
+            s = self.conn.literal(value)
+        if isinstance(s, unicode):
+            charset = self.conn.character_set_name()
+            try:
+                s = s.encode(charset)
+            except:
+                # unknown python encoding
+                pass
+        return s
 
     def escape_string(self, s):
         if isinstance(s, unicode):
