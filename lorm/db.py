@@ -338,7 +338,7 @@ class QuerySet:
 
     def make_cond(self, args, kw):
         # field loopup
-        a = ' and '.join('(%s)'%v for v in args)
+        a = ' and '.join('(%s)'%self.utf8(v) for v in args)
         b_list = [self.make_expr(k, v) for k,v in kw.iteritems()]
         b_list = [s for s in b_list if s]
         b = ' and '.join(b_list)
@@ -368,6 +368,7 @@ class QuerySet:
             return ''
         real_fields = []
         for f in fields:
+            f = self.utf8(f)
             if f == '?':
                 f = 'rand()'
             elif f.startswith('-'):
