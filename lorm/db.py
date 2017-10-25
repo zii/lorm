@@ -268,11 +268,7 @@ class QuerySet:
         self._exists = None
         self._count  = None
 
-    def literal(self, value):
-        if hasattr(value, '__iter__'):
-            s = '(' + ','.join(self.conn.literal(v) for v in value) + ')'
-        else:
-            s = self.conn.literal(value)
+    def utf8(self, s):
         if isinstance(s, unicode):
             charset = self.conn.character_set_name()
             try:
@@ -282,14 +278,16 @@ class QuerySet:
                 pass
         return s
 
+    def literal(self, value):
+        value = self.utf8(value)
+        if hasattr(value, '__iter__'):
+            s = '(' + ','.join(self.literal(v) for v in value) + ')'
+        else:
+            s = self.conn.literal(value)
+        return s
+
     def escape_string(self, s):
-        if isinstance(s, unicode):
-            charset = self.conn.character_set_name()
-            try:
-                s = s.encode(charset)
-            except:
-                # unknown python encoding
-                pass
+        s = self.utf8(s)
         return self.conn.escape_string(s)
 
     def make_select(self, fields):
@@ -586,7 +584,7 @@ class QuerySet:
 
     def make_update_fields(self, args=[], kw={}):
         f1 = ', '.join(args)
-        f2 = ', '.join('`%s`=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
+        f2 = ', '.join('`%s`=%s'%(self.utf8(k),self.literal(v)) for k,v in kw.iteritems())
         if f1 and f2:
             return f1 + ', ' + f2
         elif f1:
