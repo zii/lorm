@@ -284,7 +284,12 @@ class QuerySet:
             s = '(' + ','.join(self.literal(v) for v in value) + ')'
         else:
             s = self.conn.literal(value)
-            s = s.replace(r'%',r'%%')
+        return s
+
+    def literal2(self, value):
+        "literal for write"
+        s = self.literal(value)
+        s = s.replace(r'%',r'%%')
         return s
 
     def escape_string(self, s):
@@ -586,7 +591,7 @@ class QuerySet:
 
     def make_update_fields(self, args=[], kw={}):
         f1 = ', '.join(args)
-        f2 = ', '.join('`%s`=%s'%(self.utf8(k),self.literal(v)) for k,v in kw.iteritems())
+        f2 = ', '.join('`%s`=%s'%(self.utf8(k),self.literal2(v)) for k,v in kw.iteritems())
         if f1 and f2:
             return f1 + ', ' + f2
         elif f1:

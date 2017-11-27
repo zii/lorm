@@ -1,6 +1,6 @@
-lorm 0.3.21 2017-11-27
+lorm 0.3.22 2017-11-27
 
-[FIX]   literal '%' bug
+[FIX]   add literal2 to fix '%' bug
 
 
 lorm 0.3.17 2017-10-20
