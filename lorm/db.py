@@ -284,6 +284,7 @@ class QuerySet:
             s = '(' + ','.join(self.literal(v) for v in value) + ')'
         else:
             s = self.conn.literal(value)
+            s = s.replace(r'%',r'%%')
         return s
 
     def escape_string(self, s):
