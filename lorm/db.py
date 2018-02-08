@@ -16,7 +16,8 @@ __all__ = [
 
 class Struct(dict):
     """
-    - 为字典加上点语法. 例如:
+    Object-Dict
+
     >>> o = Struct({'a':1})
     >>> o.a
     >>> 1
@@ -114,7 +115,7 @@ class ConnectionProxy:
         return self.connect().query(command)
 
     def begin(self):
-        return self.query("BEGIN")
+        return self.query('BEGIN')
 
     def commit(self):
         assert self.c, 'Need connect before commit!'
@@ -198,15 +199,18 @@ class ConnectionProxy:
     def __getattr__(self, table_name):
         return QuerySet(self, table_name)
 
+    def __getitem__(self, table_name):
+        return QuerySet(self, table_name)
+
     def __str__(self):
-        return '<ConnectionProxy: %x>' % (id(self))
+        return "<ConnectionProxy: %x>" % (id(self))
 
 
 class Hub:
     """
-    用法:
+    Usage:
 
-    >>> db = Hub()
+    >>> db = Hub(pymysql)
     >>> db.add_db('default', host='', port=3306, user='', passwd='', db='', 
                     charset='utf8', autocommit=True, pool_size=8, wait_timeout=30)
     >>> db.default.auth_user.get(id=1)
@@ -219,8 +223,8 @@ class Hub:
 
     def add_pool(self, alias, **connect_kwargs):
         """
-        :param pool_size: (optional)连接池容量
-        :param wait_timeout: (optional)连接最大保持时间(秒)
+        :param pool_size: (optional)Connection pool capacity
+        :param wait_timeout: (optional)Maximum retention time (SEC)
         """
         def creator():
             # Timeout before throwing an exception when connecting. 
@@ -236,11 +240,13 @@ class Hub:
             return ConnectionProxy(creator)
 
     def __getattr__(self, alias):
-        """返回一个库的代理连接"""
+        return self.get_proxy(alias)
+
+    def __getitem__(self, alias):
         return self.get_proxy(alias)
 
     def __str__(self):
-        return '<Hub: %s>' % id(self)
+        return "<Hub: {}>".format(id(self))
 
 
 class QuerySet:
@@ -251,7 +257,7 @@ class QuerySet:
         "conn: a Connection object"
         self.conn = conn
         self.db_name = db_name
-        self.table_name = "%s.%s" % (db_name, table_name) if db_name else table_name
+        self.table_name = u"{}.{}".format(db_name, table_name) if db_name else table_name
         self.select_list = []
         self.cond_list = []
         self.cond_dict = {}
@@ -268,84 +274,66 @@ class QuerySet:
         self._exists = None
         self._count  = None
 
-    def literal(self, value):
-        if hasattr(value, '__iter__'):
-            s = '(' + ','.join(self.conn.literal(v) for v in value) + ')'
-        else:
-            s = self.conn.literal(value)
-        if isinstance(s, unicode):
-            charset = self.conn.character_set_name()
-            try:
-                s = s.encode(charset)
-            except:
-                # unknown python encoding
-                pass
-        return s
+    def literal(self, object):
+        return self.conn.literal(object)
 
     def escape_string(self, s):
-        if isinstance(s, unicode):
-            charset = self.conn.character_set_name()
-            try:
-                s = s.encode(charset)
-            except:
-                # unknown python encoding
-                pass
         return self.conn.escape_string(s)
 
     def make_select(self, fields):
         if not fields:
-            return '*'
-        return ','.join(fields)
+            return u'*'
+        return u','.join(fields)
 
     def make_expr(self, key, v):
         "filter expression"
         row = key.split(self.LOOKUP_SEP, 1)
-        field = "`%s`" % row[0]
+        field = u"`{}`".format(row[0])
         op = row[1] if len(row)>1 else ''
         if not op:
             if v is None:
-                return field + ' is null'
+                return field + u' is null'
             else:
-                return field + '=' + self.literal(v)
-        if op == 'gt':
-            return field + '>' + self.literal(v)
-        elif op == 'gte':
-            return field + '>=' + self.literal(v)
-        elif op == 'lt':
-            return field + '<' + self.literal(v)
-        elif op == 'lte':
-            return field + '<=' + self.literal(v)
-        elif op == 'ne':
+                return field + u'=' + self.literal(v)
+        if op == u'gt':
+            return field + u'>' + self.literal(v)
+        elif op == u'gte':
+            return field + u'>=' + self.literal(v)
+        elif op == u'lt':
+            return field + u'<' + self.literal(v)
+        elif op == u'lte':
+            return field + u'<=' + self.literal(v)
+        elif op == u'ne':
             if v is None:
-                return field + ' is not null'
+                return field + u' is not null'
             else:
-                return field + '!=' + self.literal(v)
-        elif op == 'in':
+                return field + u'!=' + self.literal(v)
+        elif op == u'in':
             if not v:
-                return '0'
-            return field + ' in ' + self.literal(v)
-        elif op == 'ni':  # not in
+                return u'0'
+            return field + u' in ' + self.literal(v)
+        elif op == u'ni':  # not in
             if not v:
-                return '1'
-            return field + ' not in ' + self.literal(v)
-        elif op == 'startswith':
-            return field + ' like ' + "'%s%%'" % self.escape_string(v)
-        elif op == 'endswith':
-            return field + ' like ' + "'%%%s'" % self.escape_string(v)
-        elif op == 'contains':
-            return field + ' like ' + "'%%%s%%'" % self.escape_string(v)
-        elif op == 'range':
-            return field + ' between ' + "%s and %s" % (self.literal(v[0]), self.literal(v[1]))
-        return key + '=' + self.literal(v)
+                return u'1'
+            return field + u' not in ' + self.literal(v)
+        elif op == u'startswith':
+            return field + u' like ' + u"'{}%'".format(self.escape_string(v))
+        elif op == u'endswith':
+            return field + u' like ' + u"'%{}'".format(self.escape_string(v))
+        elif op == u'contains':
+            return field + u' like ' + u"'%{}%'".format(self.escape_string(v))
+        elif op == u'range':
+            return field + u' between ' + u"{} and {}".format(self.literal(v[0]), self.literal(v[1]))
+        return key + u'=' + self.literal(v)
 
     def make_cond(self, args, kw):
         # field loopup
-        a = ' and '.join('(%s)'%v for v in args)
+        a = u' and '.join(u"({})".format(s) for s in args)
         b_list = [self.make_expr(k, v) for k,v in kw.iteritems()]
         b_list = [s for s in b_list if s]
-        b = ' and '.join(b_list)
+        b = u' and '.join(b_list)
         if a and b:
-            s = a + ' and ' + b
+            s = a + u' and ' + b
         elif a:
             s = a
         elif b:
@@ -358,11 +346,11 @@ class QuerySet:
         cond = self.make_cond(cond_list, cond_dict)
         exclude = self.make_cond(exclude_list, exclude_dict)
         if cond and exclude:
-            return 'where %s and not (%s)' % (cond, exclude)
+            return u"where {} and not ({})".format(cond, exclude)
         elif cond:
-            return 'where %s' % cond
+            return u"where {}".format(cond)
         elif exclude:
-            return 'where not (%s)' % exclude
+            return u"where not ({})".format(exclude)
         return ''
 
     def make_order_by(self, fields):
@@ -370,33 +358,33 @@ class QuerySet:
             return ''
         real_fields = []
         for f in fields:
-            if f == '?':
-                f = 'rand()'
-            elif f.startswith('-'):
-                f = f[1:] + ' desc'
+            if f == u'?':
+                f = u'rand()'
+            elif f.startswith(u'-'):
+                f = f[1:] + u' desc'
             real_fields.append(f)
-        return 'order by ' + ','.join(real_fields)
+        return u'order by ' + u','.join(real_fields)
 
     def reverse_order_list(self):
         if not self.order_list:
-            self.order_list = ['-id']
+            self.order_list = [u'-id']
         else:
             orders = []
             for s in self.order_list:
-                if s == '?':
+                if s == u'?':
                     pass
-                elif s.startswith('-'):
+                elif s.startswith(u'-'):
                     s = s[1:]
                 else:
-                    s = '-' + s
+                    s = u'-' + s
                 orders.append(s)
             self.order_list = orders
 
     def make_group_by(self, fields):
         if not fields:
             return ''
-        having = ' having %s'%self.having if self.having else ''
-        return 'group by ' + ','.join(fields) + having
+        having = u" having {}".format(self.having) if self.having else ''
+        return u'group by ' + u','.join(fields) + having
 
     def make_limit(self, limits):
         if not limits:
@@ -405,8 +393,8 @@ class QuerySet:
         if not stop:
             return ''
         if not start:
-            return 'limit %s' % stop
-        return 'limit %s, %s' % (start, stop-start)
+            return u"limit {}".format(stop)
+        return u"limit {}, {}".format(start, stop-start)
 
     def make_query(self, select_list=None, cond_list=None, cond_dict=None,
                    exclude_list=None, exclude_dict=None,
@@ -432,7 +420,7 @@ class QuerySet:
         order = self.make_order_by(order_list)
         group = self.make_group_by(group_list)
         limit = self.make_limit(limits)
-        sql = "select %s from %s %s %s %s %s" % (select, self.table_name, cond, group, order, limit)
+        sql = u"select {} from {} {} {} {} {}".format(select, self.table_name, cond, group, order, limit)
         return sql
 
     @property
@@ -533,15 +521,15 @@ class QuerySet:
 
     def create(self, ignore=False, **kw):
         "Returns lastrowid"
-        tokens = ','.join(['%s']*len(kw))
-        fields = ["`%s`"%k for k in kw.keys()]
-        fields = ','.join(fields)
-        ignore_s = ' IGNORE' if ignore else ''
+        tokens = u','.join([u'%s']*len(kw))
+        fields = [u"`{}`".format(k) for k in kw.keys()]
+        fields = u','.join(fields)
+        ignore_s = u' IGNORE' if ignore else ''
         ondup_s = ''
         if self.ondup_list or self.ondup_dict:
             update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
-            ondup_s = ' ON DUPLICATE KEY UPDATE ' + update_fields
-        sql = "insert%s into %s (%s) values (%s)%s" % (ignore_s, self.table_name, fields, tokens, ondup_s)
+            ondup_s = u' ON DUPLICATE KEY UPDATE ' + update_fields
+        sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
         _, lastid = self.conn.execute(sql, kw.values())
         return lastid
 
@@ -550,15 +538,15 @@ class QuerySet:
         if not obj_list:
             return
         kw = obj_list[0]
-        tokens = ','.join(['%s']*len(kw))
-        fields = ["`%s`"%k for k in kw.keys()]
-        fields = ','.join(fields)
-        ignore_s = ' IGNORE' if ignore else ''
+        tokens = u','.join(['%s']*len(kw))
+        fields = [u"`{}`".format(k) for k in kw.keys()]
+        fields = u','.join(fields)
+        ignore_s = u' IGNORE' if ignore else ''
         ondup_s = ''
         if self.ondup_list or self.ondup_dict:
             update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
-            ondup_s = ' ON DUPLICATE KEY UPDATE ' + update_fields
-        sql = "insert%s into %s (%s) values (%s)%s" % (ignore_s, self.table_name, fields, tokens, ondup_s)
+            ondup_s = u' ON DUPLICATE KEY UPDATE ' + update_fields
+        sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
 
@@ -567,7 +555,7 @@ class QuerySet:
             return self._count
         if self._result is not None:
             return len(self._result)
-        sql = self.make_query(select_list=['count(*) n'], order_list=[], limits=[None,1])
+        sql = self.make_query(select_list=[u'count(*) n'], order_list=[], limits=[None,1])
         row = self.conn.fetchone(sql)
         n = row[0] if row else 0
         self._count = n
@@ -578,17 +566,17 @@ class QuerySet:
             return True
         if self._exists is not None:
             return self._exists
-        sql = self.make_query(select_list=['1'], order_list=[], limits=[None,1])
+        sql = self.make_query(select_list=[u'1'], order_list=[], limits=[None,1])
         row = self.conn.fetchone(sql)
         b = bool(row)
         self._exists = b
         return b
 
     def make_update_fields(self, args=[], kw={}):
-        f1 = ', '.join(args)
-        f2 = ', '.join('`%s`=%s'%(k,self.literal(v)) for k,v in kw.iteritems())
+        f1 = u', '.join(args)
+        f2 = u', '.join(u"`{}`={}".format(k, self.literal(v)) for k,v in kw.iteritems())
         if f1 and f2:
-            return f1 + ', ' + f2
+            return f1 + u', ' + f2
         elif f1:
             return f1
         return f2
@@ -599,7 +587,7 @@ class QuerySet:
             return 0
         cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
         update_fields = self.make_update_fields(args, kw)
-        sql = "update %s set %s %s" % (self.table_name, update_fields, cond)
+        sql = u"update {} set {} {}".format(self.table_name, update_fields, cond)
         n, _ = self.conn.execute(sql)
         return n
 
@@ -607,8 +595,8 @@ class QuerySet:
         "return affected rows"
         cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
         limit = self.make_limit(self.limits)
-        d_names = ','.join(names)
-        sql = "delete %s from %s %s %s" % (d_names, self.table_name, cond, limit)
+        d_names = u','.join(names)
+        sql = u"delete {} from {} {} {}".format(d_names, self.table_name, cond, limit)
         n, _ = self.conn.execute(sql)
         return n
 
@@ -646,14 +634,3 @@ class QuerySet:
 
     def __nonzero__(self):      # Python 2 compatibility
         return self.exists()
-
-    def wait(self, *args, **kw):
-        "扩展: 重复读取从库直到有数据, 表示数据已同步"
-        delays = [0, 0.2, 0.4, 0.8, 1.2, 1.4]
-        for dt in delays:
-            if dt > 0:
-                time.sleep(dt)
-            r = self.get(*args, **kw)
-            if r:
-                return r
-        logging.warning('slave db sync timeout: %s' % self.table_name)
