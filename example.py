@@ -8,137 +8,144 @@ if __name__ == '__main__':
     "test"
     db = Hub(pymysql)
     # master db connection
-    db.add_pool('default', host='192.168.1.110', port=3306, user='root', 
-                passwd='1', db='test', charset='utf8', autocommit=True,
-                pool_size=8, wait_timeout=30)
-    # slave db connection
-    db.add_pool('slave', host='192.168.0.130', port=3306, user='dba_user', 
-                passwd='tbkt123456', db='test', charset='utf8', autocommit=True,
+    db.add_pool('default', host='192.168.0.209', port=3306, user='root', 
+                passwd='mysqlzhdzeyadkjcau62', db='test', charset='utf8', autocommit=True,
                 pool_size=8, wait_timeout=30)
 
-    #user = db.default.auth_user.get(id=1)
-    #print user
-    # >>> {u'username': u'super', u'real_name': u'\u73ed\u5185\u7f51', u'last_login': datetime.datetime(2013, 4, 10, 11, 22, 6), 
-    # >>> u'portrait': u'portrait/2009/08/24/small_super.png', u'password': u'sha1$e7852$9145986c1df5da5ef390e6d95bcf9c4e6a828608'
-    # >>> , u'type': 3, u'id': 1, u'date_joined': datetime.datetime(2009, 8, 24, 17, 26, 26)}
-    #print user.id, user.last_login
-    # >>> 1 2013-04-10 11:22:06
+    # pet = db.default.pet.get(id=1)
+    # print pet
+    # >>> {u'id': 1, u'name': u'cat'}
+    #print pet.id, pet.name
+    # >>> 1 cat
 
-    #print db.slave.auth_user[0]
+    #print db.default.pet[0]
 
-    # greater than
-    #print db.slave.auth_user.filter(id__gt=10).first()
+    # >
+    #print db.default.pet.filter(id__gt=10).first()
 
-    # less than
-    #print db.slave.auth_user.filter(id__lt=10).last()
+    # <
+    #print db.default.pet.filter(id__lt=10).last()
 
-    # not equal
-    #print db.slave.auth_user.filter(id__ne=1).first()
+    # !=
+    #print db.default.pet.filter(id__ne=1).order_by('id').first()
 
     # in
-    #print db.slave.auth_user.filter(id__in=(1,2,3))[:]
+    #print db.default.pet.filter(id__in=(1,2,3))[:]
 
     # not in
-    #q = db.slave.auth_user.filter(id__in=(1,2,3), id__ni=(1,3)).flat('id')
+    #q = db.default.pet.filter(id__in=(1,2,3), id__ni=(1,3)).flat('id')
     #print q[:]
     # >>> [2]
     #print q.sql
-    # >>> select id from auth_user where id not in (1,3) and id in (1,2,3)
+    # >>> select id from pet where `id` not in (1,3) and `id` in (1,2,3)
 
-    #print db.default.auth_user.filter(id__lt=10).select('id')[:]
+    # row style: dict
+    #print db.default.pet.filter(id__lt=10).select('id')[:]
     # >>> [{u'id': 1}, {u'id': 2}, {u'id': 3}]
 
-    #print db.default.auth_user.filter(id__lt=10).values('id')[:]
+    # row style: 2D-array
+    #print db.default.pet.filter(id__lt=10).values('id')[:]
     # >>> ((1,), (2,), (3,))
     
-    #print db.default.auth_user.filter(id__lt=10).flat('id')[:]
+    # row style: 1D-array
+    #print db.default.pet.filter(id__lt=10).flat('id')[:]
     # >>> [1, 2, 3]
 
-    #print db.slave.auth_user.count()
+    # count
+    #print db.default.pet.count()
     # >>> 979
 
-    #print db.slave.auth_user.filter(real_name__startswith='熊猫').select('id').first()
+    # sum
+    #print db.default.pet.flat("sum(id)").first()
+
+    # like 'xxx%'
+    #print db.default.pet.filter(name__startswith=u'熊').select('id')[:]
     # >>> {u'id': 1}
 
-    #print db.slave.auth_user.filter(real_name__endswith='熊猫').select('id').first()
+    # like '%xxx'
+    #print db.default.pet.filter(name__endswith=u'熊').select('id')[:]
     # >>> {u'id': 1}
 
-    #print db.slave.auth_user.filter(real_name__contains='熊猫').select('id').first()
+    # like '%xxx%'
+    #print db.default.pet.filter(name__contains=u'熊').select('id')[:]
     # >>> {u'id': 1}
 
-    #q = db.slave.auth_user.filter(id__range=(1,3)).flat('id')
+    # range
+    #q = db.default.pet.filter(id__range=(1,3)).flat('id')
     #print q.sql
-    # >>> select id from auth_user where id between 1 and 3
+    # >>> select id from pet where `id` between 1 and 3   
     #print q[:]
     # >>> [1, 2, 3]
 
     # exclude
-    #print db.slave.auth_user.filter(id__lt=10).exclude(id=2).flat('id')[:]
+    #print db.default.pet.filter(id__lt=10).exclude(id=2).flat('id')[:]
 
     # reverse order
-    #print db.slave.auth_user.filter(id__lt=10).order_by('-id').flat('id')[:]
+    #print db.default.pet.filter(id__lt=10).order_by('-id').flat('id')[:]
     # >>> [3, 2, 1]
 
     # random sort
-    #print db.slave.auth_user.filter(id__lt=10).order_by('?').flat('id')[:]
+    #print db.default.pet.filter(id__lt=10).order_by('?').flat('id')[:]
     # >>> [2, 3, 1]
 
     # group by
-    #print db.slave.school.group_by('county').select('county', 'count(*) n').order_by('-n')[:3]
-    # SQL: select county,count(*) n from school  group by county order by n desc limit 3
-    # >>> [{u'county': u'410928', u'n': 823}, {u'county': u'410482', u'n': 793}, {u'county': u'410423', u'n': 730}]
+    #print db.default.pet.group_by('name').select('name', 'count(*) n').order_by('-n')[:3]
+    # SQL: select name,count(*) n from pet  group by name order by n desc 
+    # >>> [{u'name': u'\u718a\u732b', u'n': 2}, {u'name': u'cat,dog', u'n': 1}, {u'name': u'\u6d63\u718a', u'n': 1}]
 
     # insert
-    #print db.default.auth_user.create(id=10, username='13500000000xs', real_name='斑马')
+    #print db.default.pet.create(name='斑马')
     # >>> 10
 
     # insert ... on duplicate
-    #print db.slave.auth_user.ondup(logins=1).create(username='super')
-    print db.slave.auth_user.ondup(logins=2).bulk_create([{'username':'super'}, {'username':'13607660526js'}])
+    #print db.default.pet.ondup(name=u"苹果").create(id=1, name='bird')
+    #print db.default.pet.ondup(name="unknonw").bulk_create([{'id':'1', 'name':'Micky'}, {'id':20, 'name':'Donald'}])
 
     # bulk insert
-    #users = [{'username':'13500000011xs', 'real_name':'仙人掌'}, 
-    #         {'username':'13500000012xs', 'real_name':'仙人球'}]
-    #print db.default.auth_user.bulk_create(users)
+    #items = {'name':'Micky'}, {'name':'Donald'}
+    #print db.default.pet.bulk_create(items)
     # >>> 2
 
     # check if exists
-    #if db.slave.auth_user.filter(id=10):
-    #    print 'exists!'
+    #print db.default.pet.filter(id=1).exists()
 
     # update
-    #print db.default.auth_user.filter(id=1).update(real_name='熊猫')
+    # c = db.default
+    # print c.pet.filter(id=1).update(name=u'龙猫')
+    # print c.last_executed
     # >>> 1
-    #print db.default.auth_user.filter(id=1).update(real_name='熊猫')
-    # >>> 0
+    # >>> update pet set `name`='龙猫' where `id`=1
 
     # delete
-    #print db.default.auth_user.filter(id=10).delete()
+    #print db.default.pet.filter(id=1).delete()
     # >>> 1
-    #print db.default.auth_user.filter(id=10).delete()
-    # >>> 0
 
     # transaction success, commit
     # with db.default as c:
-    #     c.tmp_id.create(id=5)
+    #     print c.pet.create(name="crocodile")
 
     # transaction fail, rollback
     # with db.default as c:
-    #     c.tmp_id.create(id=5)  # insert 5
-    #     c.tmp_id.create(id=1)  # Duplicate PRIMARY error and rollback
+    #     c.pet.create(name="new")  # insert new
+    #     c.pet.create(id=1)  # Duplicate PRIMARY error and rollback
 
     # is connection alive?
-    #print db.default.open
+    # c = db.default
+    # c.character_set_name()
+    # print c.open
 
-    # test reconnect
-    # c = db.slave
-    # print c.auth_user.get(id=1).id
-    # # turn off networking
-    # time.sleep(5)
-    # try:
-    #     print c.auth_user.get(id=1).id
-    # except:
-    #     print 'broken'
-    # # turn on networking
-    # time.sleep(10)
-    # print c.auth_user.get(id=1).id
+    # two styles to select a table
+    # print db.default['pet'][0]
+    # print db.default.pet[0]
+
+    # two styles to select a db
+    # print db['default']['pet'][0]
+    # print db.default['pet'][0]
+
+    # test encoding
+    # now = datetime.datetime.now()
+    # s = db.default.literal([now, u"a"])
+    # print type(s), s
+    # print db.default.literal(u'a"a"a')
+    # s = db.default.escape_string(u"是'")
+    # print type(s), s

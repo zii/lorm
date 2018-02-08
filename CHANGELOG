@@ -1,3 +1,13 @@
+lorm 0.3.24 2018-2-8
+
+[NEW]   support subscript style to select a db/table
+        db['default']['pet'].get(id=1)
+[DEL]   QuerySet.wait, use translation instead
+[FIX]   1. Solved the encoding problem that has been plagued for a long time, 
+        unified encoding into Unicode later on.
+        2. update examples
+
+
 lorm 0.3.22 2017-11-27
 
 [FIX]   add literal2 to fix '%' bug
