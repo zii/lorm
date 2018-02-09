@@ -1,3 +1,9 @@
+lorm 1.0.0a 2018-2-9
+
+[FIX]   fetchall(self, sql, args=None) =>
+        fetchall(self, sql, *args)
+
+
 lorm 0.3.24 2018-2-8
 
 [NEW]   support subscript style to select a db/table
