@@ -125,26 +125,30 @@ class ConnectionProxy:
         assert self.c, 'Need connect before rollback!'
         self.c.rollback()
 
-    def fetchall(self, sql, args=None):
+    def fetchall(self, sql, *args):
+        args = args or None
         with Executer(self) as cursor:
             cursor.execute(sql, args)
             rows = cursor.fetchall()
         return rows
 
-    def fetchone(self, sql, args=None):
+    def fetchone(self, sql, *args):
+        args = args or None
         with Executer(self) as cursor:
             cursor.execute(sql, args)
             row = cursor.fetchone()
         return row
 
-    def fetchall_dict(self, sql, args=None):
+    def fetchall_dict(self, sql, *args):
+        args = args or None
         with Executer(self) as cursor:
             cursor.execute(sql, args)
             fields = [r[0] for r in cursor.description]
             rows = cursor.fetchall()
         return [Struct(zip(fields,row)) for row in rows]
 
-    def fetchone_dict(self, sql, args=None):
+    def fetchone_dict(self, sql, *args):
+        args = args or None
         with Executer(self) as cursor:
             cursor.execute(sql, args)
             row = cursor.fetchone()
@@ -153,10 +157,11 @@ class ConnectionProxy:
         fields = [r[0] for r in cursor.description]
         return Struct(zip(fields, row))
 
-    def execute(self, sql, args=None):
+    def execute(self, sql, *args):
         """
         Returns affected rows and lastrowid.
         """
+        args = args or None
         with Executer(self) as cursor:
             cursor.execute(sql, args)
         return cursor.rowcount, cursor.lastrowid
@@ -165,6 +170,7 @@ class ConnectionProxy:
         """
         Execute a multi-row query. Returns affected rows.
         """
+        args = args or None
         with Executer(self) as cursor:
             rows = cursor.executemany(sql, args)
         return rows

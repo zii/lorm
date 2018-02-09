@@ -149,3 +149,15 @@ if __name__ == '__main__':
     # print db.default.literal(u'a"a"a')
     # s = db.default.escape_string(u"是'")
     # print type(s), s
+
+    # raw sql
+    #print db.default.execute("insert into pet(name) values(%s)", 'dog')
+    # >>> (1, 29)
+    # print db.default.fetchall("select * from pet where id in %s", [1,2])
+    # >>> ((1, u'cat'), (2, u'\u718a\u732b'))
+    # print db.default.fetchall_dict("select * from pet where id in %s", [1,2])
+    # >>> [{u'id': 1, u'name': u'cat'}, {u'id': 2, u'name': u'\u718a\u732b'}]
+    # print db.default.execute_many("insert into pet(name) value(%s)", ['cat', 'dog'])
+    # >>> 2
+    # print db.default.execute_many("insert into pet(id, name) value(%s, %s)", [(32, 'cat'), (33, 'dog')])
+    # >>> 2
