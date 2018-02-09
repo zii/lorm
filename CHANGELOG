@@ -1,4 +1,4 @@
-lorm 1.0.0a 2018-2-9
+lorm 1.0.0 2018-2-9
 
 [FIX]   fetchall(self, sql, args=None) =>
         fetchall(self, sql, *args)

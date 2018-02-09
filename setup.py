@@ -1,7 +1,7 @@
 #coding: utf-8
 from setuptools import setup, find_packages
 
-__version__ = '1.0.0a'
+__version__ = '1.0.0'
 
 setup(
     name         = "lorm",
