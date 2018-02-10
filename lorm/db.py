@@ -536,7 +536,7 @@ class QuerySet:
             update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
             ondup_s = u' ON DUPLICATE KEY UPDATE ' + update_fields
         sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
-        _, lastid = self.conn.execute(sql, kw.values())
+        _, lastid = self.conn.execute(sql, *kw.values())
         return lastid
 
     def bulk_create(self, obj_list, ignore=False):
