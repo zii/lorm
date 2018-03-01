@@ -532,11 +532,13 @@ class QuerySet:
         fields = u','.join(fields)
         ignore_s = u' IGNORE' if ignore else ''
         ondup_s = ''
+        ondup_vals = []
         if self.ondup_list or self.ondup_dict:
-            update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
-            ondup_s = u' ON DUPLICATE KEY UPDATE ' + update_fields
+            statement, ondup_vals = self.make_update_fields(self.ondup_list, self.ondup_dict)
+            ondup_s = u' ON DUPLICATE KEY UPDATE ' + statement
         sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
-        _, lastid = self.conn.execute(sql, *kw.values())
+        values = kw.values() + ondup_vals
+        _, lastid = self.conn.execute(sql, *values)
         return lastid
 
     def bulk_create(self, obj_list, ignore=False):
@@ -549,10 +551,17 @@ class QuerySet:
         fields = u','.join(fields)
         ignore_s = u' IGNORE' if ignore else ''
         ondup_s = ''
+        ondup_vals = []
         if self.ondup_list or self.ondup_dict:
-            update_fields = self.make_update_fields(self.ondup_list, self.ondup_dict)
+            update_fields, ondup_vals = self.make_update_fields(self.ondup_list, self.ondup_dict)
             ondup_s = u' ON DUPLICATE KEY UPDATE ' + update_fields
-        sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
+            sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
+            affected_rows = 0
+            for o in obj_list:
+                vals = o.values() + ondup_vals
+                n, _ = self.conn.execute(sql, *vals)
+                affected_rows += n
+            return affected_rows
         args = [o.values() for o in obj_list]
         return self.conn.execute_many(sql, args)
 
@@ -580,21 +589,21 @@ class QuerySet:
 
     def make_update_fields(self, args=[], kw={}):
         f1 = u', '.join(args)
-        f2 = u', '.join(u"`{}`={}".format(k, self.literal(v)) for k,v in kw.iteritems())
+        f2 = u', '.join(u"`{}`=%s".format(k) for k in kw.keys())
         if f1 and f2:
-            return f1 + u', ' + f2
+            return f1 + u', ' + f2, kw.values()
         elif f1:
-            return f1
-        return f2
+            return f1, []
+        return f2, kw.values()
 
     def update(self, *args, **kw):
         "return affected rows"
         if not args and not kw:
             return 0
         cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
-        update_fields = self.make_update_fields(args, kw)
+        update_fields, vals = self.make_update_fields(args, kw)
         sql = u"update {} set {} {}".format(self.table_name, update_fields, cond)
-        n, _ = self.conn.execute(sql)
+        n, _ = self.conn.execute(sql, *vals)
         return n
 
     def delete(self, *names):
