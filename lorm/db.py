@@ -298,45 +298,48 @@ class QuerySet:
         op = row[1] if len(row)>1 else ''
         if not op:
             if v is None:
-                return field + u' is null'
+                return u"{} is null".format(field), []
             else:
-                return field + u'=' + self.literal(v)
+                return u"{}=%s".format(field), [v] 
         if op == u'gt':
-            return field + u'>' + self.literal(v)
+            return u"{}>%s".format(field), [v]
         elif op == u'gte':
-            return field + u'>=' + self.literal(v)
+            return u"{}>=%s".format(field), [v]
         elif op == u'lt':
-            return field + u'<' + self.literal(v)
+            return u"{}<%s".format(field), [v]
         elif op == u'lte':
-            return field + u'<=' + self.literal(v)
+            return u"{}<=%s".format(field), [v]
         elif op == u'ne':
             if v is None:
-                return field + u' is not null'
+                return u"{} is not null".format(field), []
             else:
-                return field + u'!=' + self.literal(v)
+                return u"{}!=%s".format(field), [v]
         elif op == u'in':
             if not v:
-                return u'0'
-            return field + u' in ' + self.literal(v)
+                return u'0', []
+            return u"{} in %s".format(field), [v]
         elif op == u'ni':  # not in
             if not v:
-                return u'1'
-            return field + u' not in ' + self.literal(v)
+                return u'1', []
+            return u"{} not in %s".format(field), [v]
         elif op == u'startswith':
-            return field + u' like ' + u"'{}%'".format(self.escape_string(v))
+            return ur"{} like '{}%'".format(field, self.escape_string(v)), []
         elif op == u'endswith':
-            return field + u' like ' + u"'%{}'".format(self.escape_string(v))
+            return u"{} like '%{}'".format(field, self.escape_string(v)), []
         elif op == u'contains':
-            return field + u' like ' + u"'%{}%'".format(self.escape_string(v))
+            return u"{} like '%{}%'".format(field, self.escape_string(v)), []
         elif op == u'range':
-            return field + u' between ' + u"{} and {}".format(self.literal(v[0]), self.literal(v[1]))
-        return key + u'=' + self.literal(v)
+            return u"{} between %s and %s".format(field), [v[0], v[1]]
+        return u"{}=%s".format(key), [v]
 
     def make_cond(self, args, kw):
         # field loopup
         a = u' and '.join(u"({})".format(s) for s in args)
-        b_list = [self.make_expr(k, v) for k,v in kw.iteritems()]
-        b_list = [s for s in b_list if s]
+        exprs = [self.make_expr(k, v) for k,v in kw.iteritems()]
+        b_list = [e[0] for e in exprs]
+        vals = []
+        for e in exprs:
+            vals += e[1]
         b = u' and '.join(b_list)
         if a and b:
             s = a + u' and ' + b
@@ -346,18 +349,20 @@ class QuerySet:
             s = b
         else:
             s = ''
-        return s if s else ''
+        s = s or ''
+        return s, vals
 
     def make_where(self, cond_list, cond_dict, exclude_list, exclude_dict):
-        cond = self.make_cond(cond_list, cond_dict)
-        exclude = self.make_cond(exclude_list, exclude_dict)
+        cond, cond_vals = self.make_cond(cond_list, cond_dict)
+        exclude, ex_vals = self.make_cond(exclude_list, exclude_dict)
+        vals = cond_vals + ex_vals
         if cond and exclude:
-            return u"where {} and not ({})".format(cond, exclude)
+            return u"where {} and not ({})".format(cond, exclude), vals
         elif cond:
-            return u"where {}".format(cond)
+            return u"where {}".format(cond), vals
         elif exclude:
-            return u"where not ({})".format(exclude)
-        return ''
+            return u"where not ({})".format(exclude), vals
+        return '', []
 
     def make_order_by(self, fields):
         if not fields:
@@ -422,31 +427,31 @@ class QuerySet:
         if limits is None:
             limits = self.limits
         select = self.make_select(select_list)
-        cond = self.make_where(cond_list, cond_dict, exclude_list, exclude_dict)
+        cond, cond_vals = self.make_where(cond_list, cond_dict, exclude_list, exclude_dict)
         order = self.make_order_by(order_list)
         group = self.make_group_by(group_list)
         limit = self.make_limit(limits)
         sql = u"select {} from {} {} {} {} {}".format(select, self.table_name, cond, group, order, limit)
-        return sql
+        return sql, cond_vals
 
     @property
     def sql(self):
-        return self.make_query()
+        return self.make_query()[0]
 
     def flush(self):
         if self._result:
             return self._result
-        sql = self.make_query()
+        sql, args = self.make_query()
         if self.row_style == 1:
-            self._result = self.conn.fetchall(sql)
+            self._result = self.conn.fetchall(sql, *args)
         elif self.row_style == 2:
-            rows = self.conn.fetchall(sql)
+            rows = self.conn.fetchall(sql, *args)
             vals = []
             for row in rows:
                 vals += row
             self._result = vals
         else:
-            self._result = self.conn.fetchall_dict(sql)
+            self._result = self.conn.fetchall_dict(sql, *args)
         return self._result
 
     def clone(self):
@@ -492,11 +497,11 @@ class QuerySet:
         cond_dict = dict(self.cond_dict)
         cond_dict.update(kw)
         cond_list = self.cond_list + list(args)
-        sql = self.make_query(cond_list=cond_list, cond_dict=cond_dict, limits=(None,1))
+        sql, vals = self.make_query(cond_list=cond_list, cond_dict=cond_dict, limits=(None,1))
         if self.row_style == 1:
-            return self.conn.fetchone(sql)
+            return self.conn.fetchone(sql, *vals)
         else:
-            return self.conn.fetchone_dict(sql)
+            return self.conn.fetchone_dict(sql, *vals)
 
     def filter(self, *args, **kw):
         q = self.clone()
@@ -572,8 +577,8 @@ class QuerySet:
             return self._count
         if self._result is not None:
             return len(self._result)
-        sql = self.make_query(select_list=[u'count(*) n'], order_list=[], limits=[None,1])
-        row = self.conn.fetchone(sql)
+        sql, vals = self.make_query(select_list=[u'count(*) n'], order_list=[], limits=[None,1])
+        row = self.conn.fetchone(sql, *vals)
         n = row[0] if row else 0
         self._count = n
         return n
@@ -583,8 +588,8 @@ class QuerySet:
             return True
         if self._exists is not None:
             return self._exists
-        sql = self.make_query(select_list=[u'1'], order_list=[], limits=[None,1])
-        row = self.conn.fetchone(sql)
+        sql, vals = self.make_query(select_list=[u'1'], order_list=[], limits=[None,1])
+        row = self.conn.fetchone(sql, *vals)
         b = bool(row)
         self._exists = b
         return b
@@ -602,19 +607,21 @@ class QuerySet:
         "return affected rows"
         if not args and not kw:
             return 0
-        cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
-        update_fields, vals = self.make_update_fields(args, kw)
+        vals = []
+        cond, cond_vals = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
+        update_fields, update_vals = self.make_update_fields(args, kw)
+        vals = cond_vals + update_vals
         sql = u"update {} set {} {}".format(self.table_name, update_fields, cond)
         n, _ = self.conn.execute(sql, *vals)
         return n
 
     def delete(self, *names):
         "return affected rows"
-        cond = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
+        cond, vals = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
         limit = self.make_limit(self.limits)
         d_names = u','.join(names)
         sql = u"delete {} from {} {} {}".format(d_names, self.table_name, cond, limit)
-        n, _ = self.conn.execute(sql)
+        n, _ = self.conn.execute(sql, *vals)
         return n
 
     def __iter__(self):

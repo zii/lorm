@@ -12,8 +12,8 @@ if __name__ == '__main__':
                 passwd='mysqlzhdzeyadkjcau62', db='test', charset='utf8', autocommit=True,
                 pool_size=8, wait_timeout=30)
 
-    # pet = db.default.pet.get(id=1)
-    # print pet
+    #pet = db.default.pet.get(id=1)
+    #print pet
     # >>> {u'id': 1, u'name': u'cat'}
     #print pet.id, pet.name
     # >>> 1 cat
@@ -33,10 +33,10 @@ if __name__ == '__main__':
     #print db.default.pet.filter(id__in=(1,2,3))[:]
 
     # not in
-    #q = db.default.pet.filter(id__in=(1,2,3), id__ni=(1,3)).flat('id')
-    #print q[:]
+    # q = db.default.pet.filter(id__in=(1,2,3), id__ni=(1,3)).flat('id')
+    # print q[:]
     # >>> [2]
-    #print q.sql
+    # print q.sql
     # >>> select id from pet where `id` not in (1,3) and `id` in (1,2,3)
 
     # row style: dict
@@ -63,8 +63,10 @@ if __name__ == '__main__':
     # >>> {u'id': 1}
 
     # like '%xxx'
-    #print db.default.pet.filter(name__endswith=u'熊').select('id')[:]
+    # c = db.default
+    # print c.pet.filter(name__endswith=u'%熊').select('id')[:]
     # >>> {u'id': 1}
+    # print c.last_executed
 
     # like '%xxx%'
     #print db.default.pet.filter(name__contains=u'熊').select('id')[:]
@@ -151,7 +153,7 @@ if __name__ == '__main__':
     # print type(s), s
 
     # raw sql
-    #print db.default.execute("insert into pet(name) values(%s)", 'dog')
+    # print db.default.execute("insert into pet(name) values(%s)", 'dog')
     # >>> (1, 29)
     # print db.default.fetchall("select * from pet where id in %s", [1,2])
     # >>> ((1, u'cat'), (2, u'\u718a\u732b'))
@@ -159,5 +161,5 @@ if __name__ == '__main__':
     # >>> [{u'id': 1, u'name': u'cat'}, {u'id': 2, u'name': u'\u718a\u732b'}]
     # print db.default.execute_many("insert into pet(name) value(%s)", ['cat', 'dog'])
     # >>> 2
-    # print db.default.execute_many("insert into pet(id, name) value(%s, %s)", [(32, 'cat'), (33, 'dog')])
+    #print db.default.execute_many("insert into pet(id, name) value(%s, %s)", [(32, 'cat'), (33, 'dog')])
     # >>> 2
