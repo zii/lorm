@@ -323,11 +323,14 @@ class QuerySet:
                 return u'1', []
             return u"{} not in %s".format(field), [v]
         elif op == u'startswith':
-            return ur"{} like '{}%'".format(field, self.escape_string(v)), []
+            v = u"{}%".format(v)
+            return ur"{} like %s".format(field), [v]
         elif op == u'endswith':
-            return u"{} like '%{}'".format(field, self.escape_string(v)), []
+            v = u"%{}".format(v)
+            return ur"{} like %s".format(field), [v]
         elif op == u'contains':
-            return u"{} like '%{}%'".format(field, self.escape_string(v)), []
+            v = u"%{}%".format(v)
+            return ur"{} like %s".format(field), [v]
         elif op == u'range':
             return u"{} between %s and %s".format(field), [v[0], v[1]]
         return u"{}=%s".format(key), [v]
