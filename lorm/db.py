@@ -610,7 +610,7 @@ class QuerySet:
         vals = []
         cond, cond_vals = self.make_where(self.cond_list, self.cond_dict, self.exclude_list, self.exclude_dict)
         update_fields, update_vals = self.make_update_fields(args, kw)
-        vals = cond_vals + update_vals
+        vals = update_vals + cond_vals 
         sql = u"update {} set {} {}".format(self.table_name, update_fields, cond)
         n, _ = self.conn.execute(sql, *vals)
         return n
