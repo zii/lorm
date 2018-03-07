@@ -277,8 +277,6 @@ class QuerySet:
         self.limits = []
         self.row_style = 0 # Element type, 0:dict, 1:2d list 2:flat list
         self._result = None
-        self._exists = None
-        self._count  = None
 
     def literal(self, object):
         return self.conn.literal(object)
@@ -439,7 +437,7 @@ class QuerySet:
 
     @property
     def sql(self):
-        return self.make_query()[0]
+        return self.make_query()
 
     def flush(self):
         if self._result:
@@ -459,9 +457,13 @@ class QuerySet:
 
     def clone(self):
         new = copy.copy(self)
+        new_dict = new.__dict__
+        for k, v in self.__dict__.iteritems():
+            if isinstance(v, list):
+                new_dict[k] = list(v)
+            elif isinstance(v, dict):
+                new_dict[k] = dict(v)
         new._result = None
-        new._exists = None
-        new._count  = None
         return new
 
     def group_by(self, *fields, **kw):
@@ -576,25 +578,19 @@ class QuerySet:
             return self.conn.execute_many(sql, args)
 
     def count(self):
-        if self._count is not None:
-            return self._count
         if self._result is not None:
             return len(self._result)
         sql, vals = self.make_query(select_list=[u'count(*) n'], order_list=[], limits=[None,1])
         row = self.conn.fetchone(sql, *vals)
         n = row[0] if row else 0
-        self._count = n
         return n
 
     def exists(self):
         if self._result is not None:
             return True
-        if self._exists is not None:
-            return self._exists
         sql, vals = self.make_query(select_list=[u'1'], order_list=[], limits=[None,1])
         row = self.conn.fetchone(sql, *vals)
         b = bool(row)
-        self._exists = b
         return b
 
     def make_update_fields(self, args=[], kw={}):
