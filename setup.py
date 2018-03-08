@@ -1,7 +1,7 @@
 #coding: utf-8
 from setuptools import setup, find_packages
 
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 
 setup(
     name         = "lorm",
@@ -16,10 +16,13 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
+        'Topic :: Internet :: WWW/HTTP :: HTTP Servers',
+        'Topic :: Internet :: WWW/HTTP :: WSGI',
+        'Topic :: Internet :: WWW/HTTP :: WSGI :: Application',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
     ],
     install_requires = [],
     #py_modules = ['lorm'],
