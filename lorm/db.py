@@ -1,4 +1,5 @@
 #coding: utf-8
+import sys
 import datetime
 import time
 import copy
@@ -6,7 +7,15 @@ import sys
 import logging
 import threading
 
-import mysql_pool
+from . import mysql_pool
+
+py3k = sys.version_info.major > 2
+
+if py3k:
+    IntType = int
+else:
+    IntType = (int, long)
+
 
 __all__ = [
     'Struct',
@@ -322,13 +331,13 @@ class QuerySet:
             return u"{} not in %s".format(field), [v]
         elif op == u'startswith':
             v = u"{}%".format(v)
-            return ur"{} like %s".format(field), [v]
+            return r"{} like %s".format(field), [v]
         elif op == u'endswith':
             v = u"%{}".format(v)
-            return ur"{} like %s".format(field), [v]
+            return r"{} like %s".format(field), [v]
         elif op == u'contains':
             v = u"%{}%".format(v)
-            return ur"{} like %s".format(field), [v]
+            return r"{} like %s".format(field), [v]
         elif op == u'range':
             return u"{} between %s and %s".format(field), [v[0], v[1]]
         return u"{}=%s".format(key), [v]
@@ -336,7 +345,7 @@ class QuerySet:
     def make_cond(self, args, kw):
         # field loopup
         a = u' and '.join(u"({})".format(s) for s in args)
-        exprs = [self.make_expr(k, v) for k,v in kw.iteritems()]
+        exprs = [self.make_expr(k, v) for k,v in kw.items()]
         b_list = [e[0] for e in exprs]
         vals = []
         for e in exprs:
@@ -458,7 +467,7 @@ class QuerySet:
     def clone(self):
         new = copy.copy(self)
         new_dict = new.__dict__
-        for k, v in self.__dict__.iteritems():
+        for k, v in self.__dict__.items():
             if isinstance(v, list):
                 new_dict[k] = list(v)
             elif isinstance(v, dict):
@@ -634,7 +643,7 @@ class QuerySet:
         if self._result is not None:
             return self._result.__getitem__(k)
         q = self.clone()
-        if isinstance(k, (int, long)):
+        if isinstance(k, IntType):
             if k < 0:
                 k = -k - 1
                 q.reverse_order_list()
@@ -645,8 +654,6 @@ class QuerySet:
             start = None if k.start is None else int(k.start)
             stop = None if k.stop is None else int(k.stop)
             assert k.step is None, 'Slice step is not supported.'
-            if stop == sys.maxint:
-                stop = None
             if start and stop is None:
                 stop = self.count()
             q.limits = [start, stop]
