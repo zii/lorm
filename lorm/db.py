@@ -556,7 +556,7 @@ class QuerySet:
             statement, ondup_vals = self.make_update_fields(self.ondup_list, self.ondup_dict)
             ondup_s = u' ON DUPLICATE KEY UPDATE ' + statement
         sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
-        values = kw.values() + ondup_vals
+        values = list(kw.values()) + ondup_vals
         _, lastid = self.conn.execute(sql, *values)
         return lastid
 
@@ -577,13 +577,13 @@ class QuerySet:
             sql = u"insert{} into {} ({}) values ({}){}".format(ignore_s, self.table_name, fields, tokens, ondup_s)
             affected_rows = 0
             for o in obj_list:
-                vals = o.values() + ondup_vals
+                vals = list(o.values()) + ondup_vals
                 n, _ = self.conn.execute(sql, *vals)
                 affected_rows += n
             return affected_rows
         else:
             sql = u"insert{} into {} ({}) values ({})".format(ignore_s, self.table_name, fields, tokens)
-            args = [o.values() for o in obj_list]
+            args = [list(o.values()) for o in obj_list]
             return self.conn.execute_many(sql, args)
 
     def count(self):
@@ -606,10 +606,10 @@ class QuerySet:
         f1 = u', '.join(args)
         f2 = u', '.join(u"`{}`=%s".format(k) for k in kw.keys())
         if f1 and f2:
-            return f1 + u', ' + f2, kw.values()
+            return f1 + u', ' + f2, list(kw.values())
         elif f1:
             return f1, []
-        return f2, kw.values()
+        return f2, list(kw.values())
 
     def update(self, *args, **kw):
         "return affected rows"
