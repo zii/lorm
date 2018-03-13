@@ -1,3 +1,8 @@
+lorm 1.0.9 2018-3-13
+
+[FIX]   fix exception bug
+
+
 lorm 1.0.7 2018-3-8
 
 [IMPROVE]   support python 3

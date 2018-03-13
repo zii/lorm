@@ -160,15 +160,15 @@ def do_query(conn, sql, reconnect=True):
         return conn._query(sql)
     except conn._driver.Error as e:
         # clear free connections?
-        # if e[0] in (2006, 2013):
+        # if e.args[0] in (2006, 2013):
         #     conn._pool.clear()
         # try reconnect only if autocommit is on
-        if e[0] == 2006 and reconnect and conn.get_autocommit() and not conn._transacting:
+        if e.args[0] == 2006 and reconnect and conn.get_autocommit() and not conn._transacting:
             ok = try_reconnect(conn)
             if ok:
                 return do_query(conn, sql, False)
         # destroy the connection when connection broken or lost
-        if e[0] in (2006, 2013):
+        if e.args[0] in (2006, 2013):
             conn._pool.close(conn)
         raise
 
