@@ -56,6 +56,9 @@ class Struct(dict):
     def __hash__(self):
         return id(self)
 
+    def copy(self):
+        return Struct(self.__dict__)
+
 
 class Executer:
     def __init__(self, proxy):
