@@ -57,7 +57,7 @@ class Struct(dict):
         return id(self)
 
     def copy(self):
-        return Struct(self.__dict__)
+        return Struct(dict.copy(self))
 
 
 class Executer:
